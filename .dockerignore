@@ -1,0 +1,29 @@
+# Version control
+.git/
+.github/
+.gitignore
+
+# Environment files
+.env
+.env.dev
+.env.local
+
+# Documentation & plans
+*.md
+walkthrough.md
+implementation_plan.md
+
+# Scripts and tools
+scripts/
+*.bat
+*.ps1
+
+# Source PDF
+zim_constitution.pdf
+
+# IDE and OS
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini
+.DS_Store

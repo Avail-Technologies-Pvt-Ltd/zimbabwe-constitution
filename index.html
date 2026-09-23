@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>Constitution of Zimbabwe - Interactive Audio & Offline Law</title>
+  <meta name="description" content="Complete Constitution of Zimbabwe (2013) with searchable chapters, sections, conversational text-to-speech audio, and 100% offline access via Service Worker.">
+  <meta name="theme-color" content="#006400">
+  
+  <!-- Web App Manifest for mobile home screen -->
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/svg+xml" href="./icons/icon-192.svg">
+  <link rel="apple-touch-icon" href="./icons/icon-192.svg">
+
+  <!-- Core Stylesheet -->
+  <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <a class="brand" onclick="App.switchTab('chapters')">
+          <img src="./icons/icon-192.svg" alt="Zimbabwe Emblem" class="brand-icon">
+          <div class="brand-titles">
+            <span class="brand-title">
+              Zim Constitution
+              <span class="brand-badge">2013</span>
+            </span>
+            <span class="brand-sub">Supreme Law of Zimbabwe</span>
+          </div>
+        </a>
+
+        <!-- Desktop Navigation Bar -->
+        <nav class="header-nav-desktop">
+          <button class="desktop-nav-link active" data-tab="chapters" onclick="App.switchTab('chapters')">Chapters</button>
+          <button class="desktop-nav-link" data-tab="search" onclick="App.switchTab('search')">Search</button>
+          <button class="desktop-nav-link" data-tab="audio" onclick="App.switchTab('audio')">Audio Player</button>
+          <button class="desktop-nav-link" data-tab="bookmarks" onclick="App.switchTab('bookmarks')">Bookmarks</button>
+          <button class="desktop-nav-link" data-tab="overview" onclick="App.switchTab('overview')">Overview</button>
+        </nav>
+
+        <!-- Header Actions -->
+        <div class="header-actions">
+          <button class="icon-btn" onclick="App.switchTab('search')" title="Search Constitution">
+            🔍
+          </button>
+          <button class="icon-btn" onclick="App.cycleTheme()" title="Switch Theme (Dark, Light, Sepia)">
+            🌓
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Offline & Service Worker Cache Status Banner -->
+    <div class="offline-banner" id="offlineBanner">
+      <div class="banner-left">
+        <span class="status-dot" id="networkDot"></span>
+        <span id="networkStatusText">Checking Service Worker & Cache status...</span>
+      </div>
+      <span id="cacheBadge" style="font-size: 0.72rem; opacity: 0.85;">Offline Ready</span>
+    </div>
+
+    <!-- Main Content Panes -->
+    <main class="main-view">
+
+      <!-- 1. CHAPTERS ACCORDION PANE -->
+      <section id="tab-chapters" class="tab-pane active">
+        <div class="view-header">
+          <h2 class="view-title">Constitutional Chapters</h2>
+          <p class="view-subtitle">Select any chapter to explore parts, sections, and legal provisions.</p>
+        </div>
+        <div id="chaptersContainer">
+          <!-- Populated by App.renderChaptersList() -->
+        </div>
+      </section>
+
+      <!-- 2. SECTION READER PANE -->
+      <section id="tab-reader" class="tab-pane">
+        <!-- Populated dynamically by App.openSection() -->
+      </section>
+
+      <!-- 3. SEARCH PANE -->
+      <section id="tab-search" class="tab-pane">
+        <div class="view-header">
+          <h2 class="view-title">Constitutional Search</h2>
+          <p class="view-subtitle">Search across all 345 sections with instant keyword matching.</p>
+        </div>
+
+        <div class="search-box-container">
+          <span class="search-icon-inside">🔍</span>
+          <input type="text" id="searchInput" class="search-input" placeholder="Search rights, section number (e.g. 56), citizenship...">
+        </div>
+
+        <div class="filter-pills" id="filterPills">
+          <!-- Populated by App.renderFilterPills() -->
+        </div>
+
+        <div class="search-results-list" id="searchResults">
+          <div style="text-align:center; padding: 2.5rem 1rem; color: var(--text-dim);">
+            <div style="font-size:2.5rem; margin-bottom:0.75rem;">📜</div>
+            <p>Type a keyword or section number to instantly search the supreme law of Zimbabwe.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. AUDIO LOUNGE & TTS CONTROLS PANE -->
+      <section id="tab-audio" class="tab-pane">
+        <div class="view-header">
+          <h2 class="view-title">Conversational Audio Station</h2>
+          <p class="view-subtitle">Listen to any constitutional section with text-to-speech narration and plain English explanations.</p>
+        </div>
+
+        <div class="audio-card">
+          <div class="audio-section-info">
+            <span class="audio-sec-tag" id="loungeTag">Ready to Play</span>
+            <h3 class="audio-sec-title" id="loungeTitle">Select a section or passage to start audio</h3>
+          </div>
+
+          <!-- Playback Controls -->
+          <div class="audio-controls-row">
+            <button class="btn-ctrl" onclick="window.TTSEngine.previous()" title="Previous sentence">⏮</button>
+            <button class="btn-ctrl btn-play-primary" id="loungeBtnPlay" onclick="App.toggleAudioPlay()" title="Play / Pause">▶</button>
+            <button class="btn-ctrl" onclick="window.TTSEngine.next()" title="Next sentence">⏭</button>
+            <button class="btn-ctrl" onclick="window.TTSEngine.stop()" title="Stop audio">⏹</button>
+          </div>
+
+          <!-- Audio Settings -->
+          <div class="audio-settings-grid">
+            <div class="setting-group">
+              <label class="setting-label" for="speedSelect">Playback Speed</label>
+              <select id="speedSelect" class="select-control">
+                <option value="0.75">0.75x (Careful)</option>
+                <option value="1.0" selected>1.0x (Normal)</option>
+                <option value="1.25">1.25x (Brisk)</option>
+                <option value="1.5">1.5x (Fast)</option>
+                <option value="2.0">2.0x (Speed Read)</option>
+              </select>
+            </div>
+
+            <div class="setting-group">
+              <label class="setting-label" for="voiceSelect">Speech Voice</label>
+              <select id="voiceSelect" class="select-control">
+                <option value="">Default Conversational Voice</option>
+              </select>
+            </div>
+
+            <div class="setting-group" style="grid-column: 1 / -1; display:flex; flex-direction:row; align-items:center; gap:0.6rem; margin-top:0.5rem;">
+              <input type="checkbox" id="convModeCheckbox" checked style="width:18px; height:18px; accent-color:var(--primary); cursor:pointer;">
+              <label for="convModeCheckbox" style="font-size:0.875rem; color:var(--text-main); cursor:pointer;">
+                <strong>Conversational Explainer Mode</strong> (Provides plain English introduction before reading the legal text)
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Listening Recommendations -->
+        <div style="margin-top: 1.5rem;">
+          <h4 style="font-size: 1rem; font-weight:700; margin-bottom: 0.75rem; color: var(--gold);">Recommended Audio Passages</h4>
+          <div class="rights-grid">
+            <div class="right-card" onclick="App.quickPlaySection(48)">
+              <span class="right-sec-badge">Section 48</span>
+              <h5 class="right-title">Right to Life</h5>
+              <p class="right-desc">Constitutional protection of life and limitations on capital punishment.</p>
+            </div>
+            <div class="right-card" onclick="App.quickPlaySection(56)">
+              <span class="right-sec-badge">Section 56</span>
+              <h5 class="right-title">Equality and Non-Discrimination</h5>
+              <p class="right-desc">Guarantees all persons equality before the law and equal protection.</p>
+            </div>
+            <div class="right-card" onclick="App.quickPlaySection(61)">
+              <span class="right-sec-badge">Section 61</span>
+              <h5 class="right-title">Freedom of Expression</h5>
+              <p class="right-desc">Protects free speech, press freedom, and academic freedom.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. BOOKMARKS & STUDY NOTES PANE -->
+      <section id="tab-bookmarks" class="tab-pane">
+        <div class="view-header">
+          <h2 class="view-title">Saved Bookmarks & Notes</h2>
+          <p class="view-subtitle">Access your bookmarked constitutional clauses and personal civic study notes.</p>
+        </div>
+        <div id="bookmarksList">
+          <!-- Populated by App.renderBookmarksList() -->
+        </div>
+      </section>
+
+      <!-- 6. OVERVIEW & KEY RIGHTS PANE -->
+      <section id="tab-overview" class="tab-pane">
+        <div class="view-header">
+          <h2 class="view-title">About the Constitution</h2>
+          <p class="view-subtitle">The supreme law of Zimbabwe adopted on 22 May 2013.</p>
+        </div>
+
+        <div class="reader-container" style="margin-bottom: 1.5rem;">
+          <h3 style="color:var(--gold); font-size:1.15rem; margin-bottom:0.5rem;">National Legal Framework</h3>
+          <p style="font-size:0.925rem; line-height:1.6; color:var(--text-muted); margin-bottom:1rem;">
+            The Constitution of Zimbabwe Amendment (No. 20) Act, 2013 was approved overwhelmingly by the people of Zimbabwe in a national referendum on 16 March 2013 and signed into law on 22 May 2013. It establishes Zimbabwe as a unitary, democratic, and sovereign republic founded on the rule of law, separation of powers, and respect for human rights.
+          </p>
+
+          <h3 style="color:var(--gold); font-size:1.15rem; margin-top:1.5rem; margin-bottom:0.75rem;">Chapter 4: Declaration of Rights Highlights</h3>
+          <div class="rights-grid">
+            <div class="right-card" onclick="App.openSection(48)">
+              <span class="right-sec-badge">Section 48</span>
+              <h5 class="right-title">Right to Life</h5>
+              <p class="right-desc">Inherent right to life with stringent restrictions on the death penalty.</p>
+            </div>
+            <div class="right-card" onclick="App.openSection(49)">
+              <span class="right-sec-badge">Section 49</span>
+              <h5 class="right-title">Personal Liberty</h5>
+              <p class="right-desc">Guarantees personal freedom and freedom from arbitrary detention.</p>
+            </div>
+            <div class="right-card" onclick="App.openSection(50)">
+              <span class="right-sec-badge">Section 50</span>
+              <h5 class="right-title">Rights of Detained Persons</h5>
+              <p class="right-desc">Prompt access to lawyers, medical treatment, and court appearance within 48 hours.</p>
+            </div>
+            <div class="right-card" onclick="App.openSection(51)">
+              <span class="right-sec-badge">Section 51</span>
+              <h5 class="right-title">Human Dignity</h5>
+              <p class="right-desc">Inherent dignity in both private and public spheres.</p>
+            </div>
+            <div class="right-card" onclick="App.openSection(56)">
+              <span class="right-sec-badge">Section 56</span>
+              <h5 class="right-title">Equality & Non-Discrimination</h5>
+              <p class="right-desc">Full equality before the law without unfair prejudice.</p>
+            </div>
+            <div class="right-card" onclick="App.openSection(61)">
+              <span class="right-sec-badge">Section 61</span>
+              <h5 class="right-title">Freedom of Expression</h5>
+              <p class="right-desc">Freedom to seek, receive, and impart ideas and media freedom.</p>
+            </div>
+            <div class="right-card" onclick="App.openSection(62)">
+              <span class="right-sec-badge">Section 62</span>
+              <h5 class="right-title">Access to Information</h5>
+              <p class="right-desc">Right of citizens to access state information in the interest of transparency.</p>
+            </div>
+            <div class="right-card" onclick="App.openSection(67)">
+              <span class="right-sec-badge">Section 67</span>
+              <h5 class="right-title">Political Rights</h5>
+              <p class="right-desc">Right to form political parties, campaign peacefully, and vote by secret ballot.</p>
+            </div>
+          </div>
+
+          <div style="margin-top:2rem; padding-top:1.5rem; border-top:1px solid var(--border-color);">
+            <h4 style="font-size:0.95rem; font-weight:700; color:var(--text-main); margin-bottom:0.5rem;">Official Recognised Languages (Section 6)</h4>
+            <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.5;">
+              Chewa, Chibarwe, English, Kalanga, Koisan, Nambya, Ndau, Ndebele, Shangani, Shona, Sign Language, Sotho, Tonga, Tswana, Venda, and Xhosa.
+            </p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Floating Persistent Mini Audio Bar -->
+    <div class="mini-audio-bar" id="miniAudioBar">
+      <div class="mini-bar-content">
+        <div class="mini-track-info" onclick="App.switchTab('audio')">
+          <div class="mini-playing-icon">🎧</div>
+          <div class="mini-titles">
+            <span class="mini-sec-title" id="miniTrackTitle">Zimbabwean Constitution Audio</span>
+            <span class="mini-sec-sub" id="miniTrackSub">Tap to open audio lounge</span>
+          </div>
+        </div>
+        <div class="mini-controls">
+          <button class="btn-ctrl" style="width:36px; height:36px; font-size:0.9rem;" onclick="window.TTSEngine.previous()">⏮</button>
+          <button class="btn-ctrl btn-play-primary" style="width:40px; height:40px; font-size:1rem;" id="miniBtnPlay" onclick="App.toggleAudioPlay()">▶</button>
+          <button class="btn-ctrl" style="width:36px; height:36px; font-size:0.9rem;" onclick="window.TTSEngine.next()">⏭</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="chapters" onclick="App.switchTab('chapters')">
+        <span class="nav-icon">📖</span>
+        <span>Chapters</span>
+      </button>
+      <button class="nav-item" data-tab="search" onclick="App.switchTab('search')">
+        <span class="nav-icon">🔍</span>
+        <span>Search</span>
+      </button>
+      <button class="nav-item" data-tab="audio" onclick="App.switchTab('audio')">
+        <span class="nav-icon">🎧</span>
+        <span>Audio</span>
+      </button>
+      <button class="nav-item" data-tab="bookmarks" onclick="App.switchTab('bookmarks')">
+        <span class="nav-icon">★</span>
+        <span>Bookmarks</span>
+      </button>
+      <button class="nav-item" data-tab="overview" onclick="App.switchTab('overview')">
+        <span class="nav-icon">ℹ️</span>
+        <span>About</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="./js/constitution-data.js"></script>
+  <script src="./js/bookmarks.js"></script>
+  <script src="./js/search.js"></script>
+  <script src="./js/tts-engine.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>

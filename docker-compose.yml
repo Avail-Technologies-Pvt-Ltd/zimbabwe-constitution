@@ -1,0 +1,18 @@
+services:
+  constitution-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${DOCKER_IMAGE:-turbulance/zim-constitution:latest}
+    container_name: zim-constitution-prod
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports:
+      - "${PORT:-8080}:80"
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/index.html"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

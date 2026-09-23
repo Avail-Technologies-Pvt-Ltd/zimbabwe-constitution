@@ -1,0 +1,35 @@
+# Local environment secrets and overrides
+.env
+.env.local
+*.local
+
+# System & OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# PDF source (optional, keep repo lightweight)
+# zim_constitution.pdf
+
+# IDE configs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker volumes and build artifacts
+.docker/

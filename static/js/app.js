@@ -321,6 +321,12 @@ const App = {
   switchTab(tabName) {
     this.currentTab = tabName;
 
+    // Reset reading scroll progress bar if leaving blog
+    const scrollBar = document.getElementById('chapterScrollProgress');
+    if (scrollBar && tabName !== 'chapter-blog') {
+      scrollBar.style.width = '0%';
+    }
+
     document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
     const targetPane = document.getElementById(`tab-${tabName}`);
     if (targetPane) targetPane.classList.add('active');
@@ -355,13 +361,15 @@ const App = {
     if (hash.startsWith('#section-')) {
       const secNum = parseInt(hash.replace('#section-', ''), 10);
       this.openSection(secNum);
+    } else if (hash.startsWith('#chapter-blog-')) {
+      const chNum = parseInt(hash.replace('#chapter-blog-', ''), 10);
+      this.openChapterBlog(chNum);
     } else if (hash.startsWith('#chapter-')) {
       const chNum = parseInt(hash.replace('#chapter-', ''), 10);
-      this.switchTab('chapters');
-      this.expandChapter(chNum);
+      this.openChapterBlog(chNum);
     } else if (hash === '#preamble') {
       this.openPreamble();
-    } else if (['chapters', 'search', 'audio', 'bookmarks', 'overview'].includes(hash.substring(1))) {
+    } else if (['chapters', 'chapter-blog', 'search', 'audio', 'bookmarks', 'overview'].includes(hash.substring(1))) {
       this.switchTab(hash.substring(1));
     }
   },
@@ -402,7 +410,7 @@ const App = {
             <h3 class="ch-title">Preamble</h3>
             <span class="ch-meta">"We the people of Zimbabwe..."</span>
           </div>
-          <span class="btn-mini-listen">Read →</span>
+          <span class="btn-blog-read" style="padding:0.4rem 0.75rem; font-size:0.75rem;">Read Preamble →</span>
         </div>
       </div>
     `;
@@ -423,7 +431,7 @@ const App = {
 
       html += `
         <div class="chapter-card" id="chapterCard-${ch.number}">
-          <div class="chapter-header" onclick="App.toggleChapter(${ch.number})">
+          <div class="chapter-header" onclick="App.openChapterBlog(${ch.number})">
             <div class="ch-info">
               <span class="ch-tag">
                 Chapter ${ch.number}
@@ -432,7 +440,14 @@ const App = {
               <h3 class="ch-title">${this.escapeHtml(ch.title)}</h3>
               <span class="ch-meta">${rangeText}</span>
             </div>
-            <span class="ch-chevron">▼</span>
+            <div style="display:flex; align-items:center; gap:0.5rem;" onclick="event.stopPropagation()">
+              <button class="btn-blog-read" style="padding:0.4rem 0.75rem; font-size:0.75rem;" onclick="App.openChapterBlog(${ch.number})" title="Open Chapter in Editorial Blog View">
+                📖 Read Blog →
+              </button>
+              <button class="icon-btn" style="width:32px; height:32px; font-size:0.75rem;" onclick="App.toggleChapter(${ch.number})" title="View Sections List">
+                ▼
+              </button>
+            </div>
           </div>
           <div class="sections-list" id="sectionsList-${ch.number}">
             ${ch.sections.map(sec => {
@@ -472,6 +487,257 @@ const App = {
     if (card) {
       card.classList.add('expanded');
       card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  },
+
+  /* ===================================================================
+     CHAPTER BLOG VIEW & READING SCROLL PROGRESS
+     Warm accents of white, editorial card formatting, sticky progress
+     =================================================================== */
+  findChapter(chNumber) {
+    return this.data.chapters.find(c => c.number === Number(chNumber)) || null;
+  },
+
+  openChapterBlog(chNumber) {
+    const ch = this.findChapter(chNumber);
+    if (!ch) {
+      this.switchTab('chapters');
+      return;
+    }
+
+    this.currentChapter = ch;
+    window.location.hash = `#chapter-blog-${ch.number}`;
+    this.switchTab('chapter-blog');
+
+    // Calculate word count and estimated reading time
+    const totalWords = ch.sections.reduce((acc, s) => {
+      const count = s.content ? s.content.trim().split(/\s+/).length : 0;
+      return acc + count;
+    }, 0);
+    const readingMins = Math.max(2, Math.round(totalWords / 200));
+
+    // Section counts and read status
+    const sectionCount = ch.sections.length;
+    let chReadCount = 0;
+    if (window.AuthManager) {
+      ch.sections.forEach(s => {
+        if (window.AuthManager.isSectionRead(s.number)) chReadCount++;
+      });
+    }
+
+    const firstSec = ch.sections[0] ? ch.sections[0].number : 1;
+    const lastSec = ch.sections[sectionCount - 1] ? ch.sections[sectionCount - 1].number : 1;
+
+    let html = `
+      <div class="chapter-blog-wrapper">
+        
+        <!-- Chapter Hero Banner (Warm Accents of White) -->
+        <div class="chapter-blog-hero">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.75rem;">
+            <button class="blog-back-btn" onclick="App.switchTab('chapters')">
+              ← Back to Chapters
+            </button>
+            <span class="chapter-blog-tag">Chapter ${ch.number} • Supreme Law of Zimbabwe</span>
+          </div>
+
+          <h1 class="chapter-blog-title">${this.escapeHtml(ch.title)}</h1>
+
+          <div class="chapter-blog-meta">
+            <span class="chapter-blog-meta-item">⏱️ ~${readingMins} min read</span>
+            <span class="chapter-blog-meta-item">📜 Sections ${firstSec} – ${lastSec} (${sectionCount} total)</span>
+            <span class="chapter-blog-meta-item" id="blogReadCounter">
+              ✅ <strong id="blogReadCountText">${chReadCount}</strong>/${sectionCount} completed
+            </span>
+          </div>
+
+          <div class="chapter-blog-toolbar">
+            <div class="chapter-blog-actions-left">
+              <button class="btn-blog-read" onclick="App.scrollToBlogSection(${firstSec})">
+                📖 Start Reading Chapter
+              </button>
+              <button class="icon-btn" style="padding: 0.5rem 0.85rem; border-radius:8px; font-size:0.85rem;" onclick="App.quickPlaySection(${firstSec})" title="Listen to Chapter 1 Audio">
+                🎧 Listen Audio
+              </button>
+            </div>
+            <div style="display:flex; gap:0.4rem;">
+              <button class="btn-pill" onclick="App.toggleSerif()">
+                ${this.useSerif ? 'Sans' : 'Serif'}
+              </button>
+              <button class="btn-pill" onclick="App.changeFontSize(-1)">A-</button>
+              <button class="btn-pill" onclick="App.changeFontSize(1)">A+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table of Contents / Quick Jump Pills -->
+        <div class="chapter-blog-toc">
+          <div class="chapter-blog-toc-title">📑 Jump to Section:</div>
+          <div class="chapter-blog-toc-pills">
+            ${ch.sections.map(s => `
+              <a class="toc-pill" onclick="App.scrollToBlogSection(${s.number})">
+                Sec ${s.number}: ${this.escapeHtml(s.title.substring(0, 32))}${s.title.length > 32 ? '...' : ''}
+              </a>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Editorial Section Cards (Warm Accents of White) -->
+        <div class="chapter-blog-sections-list">
+          ${ch.sections.map(sec => {
+            const isRead = window.AuthManager ? window.AuthManager.isSectionRead(sec.number) : false;
+            const isBookmarked = window.BookmarksManager ? window.BookmarksManager.isBookmarked(sec.number) : false;
+            return `
+              <article class="blog-section-card" id="blog-sec-${sec.number}">
+                <div class="blog-sec-header">
+                  <div>
+                    <div class="blog-sec-num">SECTION ${sec.number}</div>
+                    <h2 class="blog-sec-title">${this.escapeHtml(sec.title)}</h2>
+                  </div>
+                  <div class="blog-sec-actions">
+                    <button class="btn-mark-read ${isRead ? 'is-read' : ''}" 
+                            id="btnBlogRead-${sec.number}" 
+                            onclick="App.toggleBlogSectionRead(${sec.number}, ${ch.number})" 
+                            title="Toggle reading progress">
+                      ${isRead ? '✓ Read' : 'Mark as Read'}
+                    </button>
+                    <button class="icon-btn" 
+                            onclick="App.quickPlaySection(${sec.number})" 
+                            title="Listen to conversational audio">
+                      🎧
+                    </button>
+                    <button class="btn-pill ${isBookmarked ? 'active' : ''}" 
+                            id="btnBlogBookmark-${sec.number}" 
+                            onclick="App.toggleBlogBookmark(${sec.number})" 
+                            title="Bookmark section">
+                      ${isBookmarked ? '★' : '☆'}
+                    </button>
+                  </div>
+                </div>
+
+                ${sec.summary ? `
+                  <div class="conversational-box" style="margin-bottom: 1.25rem;">
+                    <div class="conv-header">
+                      <span class="conv-badge">💬 Plain English Context</span>
+                      <button class="btn-listen-explainer" onclick="App.quickPlaySection(${sec.number})">
+                        ▶ Listen with TTS
+                      </button>
+                    </div>
+                    <p class="conv-text">${this.escapeHtml(sec.summary)}</p>
+                  </div>
+                ` : ''}
+
+                <div class="blog-sec-body">
+                  ${sec.content.split('\n\n').filter(p => p.trim()).map((p, idx) => `
+                    <div class="reader-paragraph" onclick="App.speakBlogPassage(this, ${sec.number})">
+                      ${this.formatParagraphText(p)}
+                      <span class="speak-hint">▶ Play passage</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </article>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Sticky Floating Bottom Bar -->
+        <div class="blog-floating-bar">
+          <div>
+            ${ch.number > 1 ? `
+              <button class="blog-back-btn" onclick="App.openChapterBlog(${ch.number - 1})">
+                ← Chapter ${ch.number - 1}
+              </button>
+            ` : '<span></span>'}
+          </div>
+          <button class="btn-blog-read" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">
+            ↑ Top of Chapter
+          </button>
+          <div>
+            ${ch.number < 18 ? `
+              <button class="blog-back-btn" onclick="App.openChapterBlog(${ch.number + 1})">
+                Chapter ${ch.number + 1} →
+              </button>
+            ` : '<span></span>'}
+          </div>
+        </div>
+
+      </div>
+    `;
+
+    const pane = document.getElementById('tab-chapter-blog');
+    if (pane) {
+      pane.innerHTML = html;
+      this.bindBlogScrollProgress();
+    }
+  },
+
+  scrollToBlogSection(secNum) {
+    const el = document.getElementById(`blog-sec-${secNum}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  },
+
+  bindBlogScrollProgress() {
+    if (this._blogScrollListener) {
+      window.removeEventListener('scroll', this._blogScrollListener);
+    }
+
+    this._blogScrollListener = () => {
+      const scrollBar = document.getElementById('chapterScrollProgress');
+      if (!scrollBar) return;
+
+      const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      if (height > 0) {
+        const scrolled = Math.min(100, Math.max(0, (winScroll / height) * 100));
+        scrollBar.style.width = scrolled + '%';
+      }
+    };
+
+    window.addEventListener('scroll', this._blogScrollListener, { passive: true });
+    this._blogScrollListener();
+  },
+
+  async toggleBlogSectionRead(secNum, chNum) {
+    if (!window.AuthManager) return;
+    const isNowRead = await window.AuthManager.toggleRead(secNum, chNum);
+    const btn = document.getElementById(`btnBlogRead-${secNum}`);
+    if (btn) {
+      btn.textContent = isNowRead ? '✓ Read' : 'Mark as Read';
+      btn.classList.toggle('is-read', isNowRead);
+    }
+    
+    // Update count in header
+    if (this.currentChapter) {
+      let count = 0;
+      this.currentChapter.sections.forEach(s => {
+        if (window.AuthManager.isSectionRead(s.number)) count++;
+      });
+      const countEl = document.getElementById('blogReadCountText');
+      if (countEl) countEl.textContent = count;
+    }
+
+    this.showToast(isNowRead ? `Section ${secNum} marked as read!` : `Section ${secNum} unmarked.`);
+  },
+
+  toggleBlogBookmark(secNum) {
+    const section = this.findSection(secNum);
+    if (!section) return;
+    const isNow = window.BookmarksManager.toggleBookmark(section);
+    const btn = document.getElementById(`btnBlogBookmark-${secNum}`);
+    if (btn) {
+      btn.textContent = isNow ? '★' : '☆';
+      btn.classList.toggle('active', isNow);
+    }
+    this.showToast(isNow ? 'Saved to bookmarks' : 'Removed from bookmarks');
+    if (window.AuthManager) window.AuthManager.syncOfflineData();
+  },
+
+  speakBlogPassage(element, secNum) {
+    const text = element.innerText.replace('▶ Play passage', '').trim();
+    if (text) {
+      const section = this.findSection(secNum);
+      window.TTSEngine.speakSelectedPassage(text, section);
     }
   },
 

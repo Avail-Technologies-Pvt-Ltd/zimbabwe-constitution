@@ -1,13 +1,14 @@
 /**
  * Conversational Text-to-Speech (TTS) Engine
- * Integrates Web Speech API with sentence-level visual highlighting,
- * conversational explainers, speed control, and passage narration.
+ * Integrates Web Speech API (Free & Offline) and ElevenLabs API (Premium HD AI Voice)
+ * with sentence-level visual highlighting, conversational explainers, and speed controls.
  */
 
 const TTSEngine = {
   synth: window.speechSynthesis || null,
   voices: [],
   selectedVoice: null,
+  isElevenLabs: false,
   rate: 1.0,
   pitch: 1.0,
   isPlaying: false,
@@ -19,6 +20,7 @@ const TTSEngine = {
   paragraphs: [],
   currentParagraphIndex: -1,
   currentUtterance: null,
+  currentAudioElement: null,
 
   // Callbacks for UI updates
   onStateChange: null,
@@ -26,22 +28,18 @@ const TTSEngine = {
   onError: null,
 
   init() {
-    if (!this.synth) {
-      console.warn('[TTS] Web Speech API not supported by this browser.');
-      return false;
-    }
-
     this.loadVoices();
-    if (speechSynthesis.onvoiceschanged !== undefined) {
+    if (this.synth && speechSynthesis.onvoiceschanged !== undefined) {
       speechSynthesis.onvoiceschanged = () => this.loadVoices();
     }
 
-    // Load saved settings
     try {
       const savedRate = localStorage.getItem('zim_tts_rate');
       if (savedRate) this.rate = parseFloat(savedRate);
       const savedConv = localStorage.getItem('zim_tts_conversational');
       if (savedConv !== null) this.conversationalMode = savedConv === 'true';
+      const savedEngine = localStorage.getItem('zim_tts_engine');
+      if (savedEngine === 'elevenlabs') this.isElevenLabs = true;
     } catch (e) {}
 
     return true;
@@ -51,7 +49,6 @@ const TTSEngine = {
     if (!this.synth) return;
     this.voices = this.synth.getVoices();
 
-    // Prefer English voices with natural qualities
     const enVoices = this.voices.filter(v => v.lang.startsWith('en'));
     const preferred = enVoices.find(v => 
       v.name.includes('Natural') || 
@@ -66,8 +63,15 @@ const TTSEngine = {
   },
 
   setVoice(voiceURI) {
-    const v = this.voices.find(item => item.voiceURI === voiceURI);
-    if (v) this.selectedVoice = v;
+    if (voiceURI === 'elevenlabs') {
+      this.isElevenLabs = true;
+      try { localStorage.setItem('zim_tts_engine', 'elevenlabs'); } catch (e) {}
+    } else {
+      this.isElevenLabs = false;
+      try { localStorage.setItem('zim_tts_engine', 'browser'); } catch (e) {}
+      const v = this.voices.find(item => item.voiceURI === voiceURI);
+      if (v) this.selectedVoice = v;
+    }
   },
 
   setRate(newRate) {
@@ -76,8 +80,11 @@ const TTSEngine = {
       localStorage.setItem('zim_tts_rate', this.rate.toString());
     } catch (e) {}
 
-    // If currently speaking, restart current sentence at new rate
-    if (this.isPlaying && !this.isPaused && this.currentParagraphIndex >= 0) {
+    if (this.currentAudioElement) {
+      this.currentAudioElement.playbackRate = this.rate;
+    }
+
+    if (this.isPlaying && !this.isPaused && this.currentParagraphIndex >= 0 && !this.isElevenLabs) {
       const remainingIndex = this.currentParagraphIndex;
       this.cancelSpeech();
       this.playFromIndex(remainingIndex);
@@ -189,7 +196,6 @@ const TTSEngine = {
   },
 
   playFromIndex(index) {
-    if (!this.synth) return;
     if (index >= this.paragraphs.length) {
       this.finish();
       return;
@@ -200,6 +206,20 @@ const TTSEngine = {
 
     if (this.onParagraphChange) {
       this.onParagraphChange(item, index);
+    }
+
+    // Choice: ElevenLabs HD Streaming VS Browser SpeechSynthesis
+    if (this.isElevenLabs) {
+      this.playElevenLabsStream(item, index);
+    } else {
+      this.playBrowserTTS(item, index);
+    }
+  },
+
+  playBrowserTTS(item, index) {
+    if (!this.synth) {
+      console.warn('[TTS] No speech synthesizer found.');
+      return;
     }
 
     const utter = new SpeechSynthesisUtterance(item.text);
@@ -216,7 +236,6 @@ const TTSEngine = {
     };
 
     utter.onerror = (e) => {
-      // Ignore normal canceled events
       if (e.error !== 'interrupted' && e.error !== 'canceled') {
         console.warn('[TTS] Playback error:', e);
         if (this.onError) this.onError(e);
@@ -226,16 +245,84 @@ const TTSEngine = {
     this.synth.speak(utter);
   },
 
+  async playElevenLabsStream(item, index) {
+    try {
+      const csrfToken = this.getCSRFToken();
+      const res = await fetch('/api/tts/elevenlabs/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ text: item.text })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.requires_upgrade) {
+          if (window.App && window.App.showToast) {
+            window.App.showToast('ElevenLabs AI Voice requires Premium. Falling back to free browser voice.');
+          }
+          // Fall back gracefully to browser TTS
+          this.isElevenLabs = false;
+          this.playBrowserTTS(item, index);
+          return;
+        } else {
+          throw new Error(errData.error || 'ElevenLabs speech synthesis failed');
+        }
+      }
+
+      const audioBlob = await res.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      this.currentAudioElement = audio;
+      audio.playbackRate = this.rate;
+
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        if (this.isPlaying && !this.isPaused) {
+          this.playFromIndex(index + 1);
+        }
+      };
+
+      audio.onerror = (e) => {
+        console.warn('[ElevenLabs Audio] Playback error:', e);
+        this.playBrowserTTS(item, index);
+      };
+
+      await audio.play();
+    } catch (err) {
+      console.warn('[TTS] ElevenLabs call failed, falling back to browser:', err);
+      if (window.App && window.App.showToast) {
+        window.App.showToast(err.message || 'ElevenLabs unavailable, using browser narrator.');
+      }
+      this.isElevenLabs = false;
+      this.playBrowserTTS(item, index);
+    }
+  },
+
   pause() {
-    if (!this.synth || !this.isPlaying || this.isPaused) return;
-    this.synth.pause();
+    if (!this.isPlaying || this.isPaused) return;
+
+    if (this.currentAudioElement) {
+      this.currentAudioElement.pause();
+    } else if (this.synth) {
+      this.synth.pause();
+    }
+
     this.isPaused = true;
     this.notifyStateChange();
   },
 
   resume() {
-    if (!this.synth || !this.isPlaying || !this.isPaused) return;
-    this.synth.resume();
+    if (!this.isPlaying || !this.isPaused) return;
+
+    if (this.currentAudioElement) {
+      this.currentAudioElement.play();
+    } else if (this.synth) {
+      this.synth.resume();
+    }
+
     this.isPaused = false;
     this.notifyStateChange();
   },
@@ -252,6 +339,10 @@ const TTSEngine = {
   },
 
   cancelSpeech() {
+    if (this.currentAudioElement) {
+      this.currentAudioElement.pause();
+      this.currentAudioElement = null;
+    }
     if (this.synth) {
       this.synth.cancel();
     }
@@ -286,11 +377,17 @@ const TTSEngine = {
     }
   },
 
+  getCSRFToken() {
+    const match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+    return match ? match[2] : '';
+  },
+
   notifyStateChange() {
     if (this.onStateChange) {
       this.onStateChange({
         isPlaying: this.isPlaying,
         isPaused: this.isPaused,
+        isElevenLabs: this.isElevenLabs,
         currentSection: this.currentSection,
         currentPassage: this.currentPassage,
         rate: this.rate,

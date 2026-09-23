@@ -12,8 +12,12 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST, require_GET
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
-from .models import UserProfile, UserProgress, UserBookmark
+from .models import UserProfile, UserProgress, UserBookmark, CachedAudio
 import json
+import hashlib
+import os
+import requests
+
 
 DATA_FILE = settings.BASE_DIR / 'data' / 'constitution.json'
 SW_FILE = settings.BASE_DIR / 'static' / 'sw.js'
@@ -105,6 +109,7 @@ def format_user_payload(user):
             'id': user.id,
             'email': user.email,
             'name': user.first_name or user.email.split('@')[0],
+            'is_premium': profile.is_premium,
             'total_sections_read': total_read,
             'reading_percentage': percentage,
             'last_section_number': profile.last_section_number,
@@ -112,6 +117,7 @@ def format_user_payload(user):
             'bookmarks': bookmarks
         }
     }
+
 
 @require_POST
 def api_register(request):
@@ -261,3 +267,110 @@ def api_sync_progress(request):
             pass
 
     return JsonResponse(format_user_payload(request.user))
+
+# ===================================================================
+# ELEVENLABS TEXT-TO-SPEECH API (PREMIUM PAID USER TIER)
+# ===================================================================
+
+@require_POST
+def api_elevenlabs_tts(request):
+    """
+    Streams ultra-realistic conversational speech from ElevenLabs API
+    for authenticated paid/premium users, with intelligent disk caching.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({
+            'error': 'Sign in to use ElevenLabs AI Voice (Premium Tier).'
+        }, status=401)
+
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    if not profile.is_premium:
+        return JsonResponse({
+            'error': 'ElevenLabs AI Voice is exclusive to Premium Citizens. Upgrade your account or use the built-in browser narrator for free.',
+            'requires_upgrade': True
+        }, status=403)
+
+    data = parse_json_body(request)
+    text = data.get('text', '').strip()
+    voice_id = data.get('voice_id', settings.ELEVENLABS_VOICE_ID) or settings.ELEVENLABS_VOICE_ID
+
+    if not text:
+        return JsonResponse({'error': 'No text provided for speech synthesis.'}, status=400)
+
+    # 1. Check local audio cache by hash to avoid burning API credits
+    text_hash = hashlib.sha256(f"{voice_id}:{text}".encode('utf-8')).hexdigest()
+    cache_dir = settings.MEDIA_ROOT / 'audio_cache'
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_file = cache_dir / f"{text_hash}.mp3"
+
+    if cache_file.exists():
+        with open(cache_file, 'rb') as f:
+            audio_bytes = f.read()
+        response = HttpResponse(audio_bytes, content_type='audio/mpeg')
+        response['X-Audio-Cache'] = 'HIT'
+        return response
+
+    # 2. Check if API key is configured
+    api_key = settings.ELEVENLABS_API_KEY
+    if not api_key:
+        return JsonResponse({
+            'error': 'ElevenLabs API key is not configured on the server yet. Please add ELEVENLABS_API_KEY to .env or settings.'
+        }, status=503)
+
+    # 3. Call ElevenLabs API
+    api_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    headers = {
+        'xi-api-key': api_key,
+        'Content-Type': 'application/json',
+        'Accept': 'audio/mpeg'
+    }
+    payload = {
+        'text': text,
+        'model_id': 'eleven_multilingual_v2',
+        'voice_settings': {
+            'stability': 0.5,
+            'similarity_boost': 0.8
+        }
+    }
+
+    try:
+        eleven_res = requests.post(api_url, json=payload, headers=headers, timeout=25)
+        if eleven_res.status_code == 200:
+            audio_bytes = eleven_res.content
+            # Save to disk cache
+            with open(cache_file, 'wb') as f:
+                f.write(audio_bytes)
+            
+            CachedAudio.objects.get_or_create(
+                text_hash=text_hash,
+                defaults={'voice_id': voice_id}
+            )
+
+            response = HttpResponse(audio_bytes, content_type='audio/mpeg')
+            response['X-Audio-Cache'] = 'MISS'
+            return response
+        else:
+            return JsonResponse({
+                'error': f'ElevenLabs API error: {eleven_res.text}'
+            }, status=eleven_res.status_code)
+    except Exception as e:
+        return JsonResponse({'error': f'Failed to generate speech: {str(e)}'}, status=500)
+
+@require_POST
+def api_toggle_demo_premium(request):
+    """
+    Demo toggle allowing users to test the Premium tier (ElevenLabs access).
+    In production, this would be triggered by a payment webhook (Paynow, EcoCash, Stripe).
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required.'}, status=401)
+
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    profile.is_premium = not profile.is_premium
+    profile.save()
+
+    return JsonResponse({
+        'is_premium': profile.is_premium,
+        'message': f'Premium tier is now {"ACTIVE (ElevenLabs unlocked)" if profile.is_premium else "INACTIVE (Free browser TTS)"}'
+    })
+

@@ -110,6 +110,15 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
+# Media files & Audio Cache
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# ElevenLabs Text-to-Speech API Configuration
+ELEVENLABS_API_KEY = os.environ.get('ELEVENLABS_API_KEY', '')
+ELEVENLABS_VOICE_ID = os.environ.get('ELEVENLABS_VOICE_ID', '21m00Tcm4TlvDq8ikWAM') # Default high quality voice
+
+
 # WhiteNoise storage: gzipped compressed static files with Cache-Control headers
 STORAGES = {
     "default": {

@@ -22,4 +22,9 @@ urlpatterns = [
     # User Progress & Sync Endpoints
     path('api/progress/toggle/', views.api_toggle_section_read, name='api_toggle_section_read'),
     path('api/progress/sync/', views.api_sync_progress, name='api_sync_progress'),
+
+    # ElevenLabs & Premium Endpoints
+    path('api/tts/elevenlabs/', views.api_elevenlabs_tts, name='api_elevenlabs_tts'),
+    path('api/auth/demo-toggle-premium/', views.api_toggle_demo_premium, name='api_toggle_demo_premium'),
 ]
+

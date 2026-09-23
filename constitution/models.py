@@ -6,11 +6,12 @@ from django.dispatch import receiver
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     last_section_number = models.IntegerField(default=1)
+    is_premium = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Profile of {self.user.email or self.user.username}"
+        return f"Profile of {self.user.email or self.user.username} (Premium: {self.is_premium})"
 
     @property
     def total_sections_read(self):
@@ -20,6 +21,16 @@ class UserProfile(models.Model):
     def reading_percentage(self):
         # 345 total sections in the Constitution
         return round((self.total_sections_read / 345) * 100, 1)
+
+class CachedAudio(models.Model):
+    text_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    voice_id = models.CharField(max_length=64, default='21m00Tcm4TlvDq8ikWAM')
+    audio_file = models.FileField(upload_to='audio_cache/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Audio Cache {self.text_hash[:12]} ({self.voice_id})"
+
 
 class UserProgress(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='progress')

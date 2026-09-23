@@ -17,6 +17,9 @@
   <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 </head>
 <body>
+  <!-- Reading Scroll Progress Bar -->
+  <div class="scroll-progress-bar" id="chapterScrollProgress"></div>
+
   <div class="app-container">
     
     <!-- Top Header -->
@@ -112,6 +115,11 @@
         <div id="chaptersContainer">
           <!-- Populated dynamically by App.renderChaptersList() -->
         </div>
+      </section>
+
+      <!-- 1B. CHAPTER BLOG VIEW PANE (Editorial format with Warm White Accents) -->
+      <section id="tab-chapter-blog" class="tab-pane">
+        <!-- Populated dynamically by App.openChapterBlog(chNumber) -->
       </section>
 
       <!-- 2. SECTION READER PANE -->

@@ -14,6 +14,7 @@ const PRECACHE_ASSETS = [
   '/static/js/app.js',
   '/static/js/constitution-data.js',
   '/static/js/tts-engine.js',
+  '/static/js/auth.js',
   '/static/js/search.js',
   '/static/js/bookmarks.js',
   '/static/icons/icon-192.svg',

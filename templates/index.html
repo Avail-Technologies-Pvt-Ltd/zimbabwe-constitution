@@ -44,6 +44,10 @@
 
         <!-- Header Actions -->
         <div class="header-actions">
+          <!-- User Profile / Login by Email Button -->
+          <button class="user-profile-btn" id="userProfileBtn" onclick="App.openAuthModal('login')" title="Sign in with email to save reading progress">
+            👤 Sign In
+          </button>
           <button class="icon-btn" onclick="App.switchTab('search')" title="Search Constitution">
             🔍
           </button>
@@ -70,7 +74,7 @@
       <section id="tab-chapters" class="tab-pane active">
         <div class="view-header">
           <h2 class="view-title">Constitutional Chapters</h2>
-          <p class="view-subtitle">Select any chapter to explore parts, sections, and legal provisions.</p>
+          <p class="view-subtitle">Select any chapter to explore parts, sections, and track your reading progress.</p>
         </div>
         <div id="chaptersContainer">
           <!-- Populated dynamically by App.renderChaptersList() -->
@@ -300,6 +304,49 @@
       </button>
     </nav>
 
+    <!-- EMAIL AUTHENTICATION MODAL -->
+    <div class="modal-backdrop" id="authModalBackdrop" onclick="if(event.target === this) App.closeAuthModal()">
+      <div class="auth-modal">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <h3 class="modal-title">Your Civic Profile</h3>
+            <span class="modal-subtitle" id="authModalSubtitle">Sign in by email to track progress across devices</span>
+          </div>
+          <button class="modal-close-btn" onclick="App.closeAuthModal()">✕</button>
+        </div>
+
+        <div class="auth-tabs">
+          <button class="auth-tab-btn active" data-tab="login" onclick="App.switchAuthTab('login')">Sign In</button>
+          <button class="auth-tab-btn" data-tab="register" onclick="App.switchAuthTab('register')">Create Account</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="auth-error-banner" id="authErrorBanner"></div>
+
+          <form class="auth-form" id="authForm" onsubmit="App.handleAuthSubmit(event)">
+            <div class="form-group" id="authNameGroup" style="display:none;">
+              <label class="form-label" for="authName">Full Name or Pseudonym</label>
+              <input type="text" id="authName" class="form-input" placeholder="e.g. Tendai Moyo">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="authEmail">Email Address</label>
+              <input type="email" id="authEmail" class="form-input" required placeholder="citizen@example.com">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="authPassword">Password</label>
+              <input type="password" id="authPassword" class="form-input" required minlength="6" placeholder="••••••••">
+            </div>
+
+            <button type="submit" class="btn-submit-auth" id="authSubmitBtn">
+              Sign In
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Scripts -->
@@ -307,6 +354,7 @@
   <script src="{% static 'js/bookmarks.js' %}"></script>
   <script src="{% static 'js/search.js' %}"></script>
   <script src="{% static 'js/tts-engine.js' %}"></script>
+  <script src="{% static 'js/auth.js' %}"></script>
   <script src="{% static 'js/app.js' %}"></script>
 </body>
 </html>

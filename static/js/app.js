@@ -1,6 +1,7 @@
 /**
  * Zimbabwean Constitution Website - Core Application Controller
- * Handles Service Worker registration, routing, reader, search, TTS UI, and offline states.
+ * Handles Service Worker registration, routing, reader, search, TTS UI,
+ * email authentication, and reading progress tracking.
  */
 
 const App = {
@@ -10,6 +11,7 @@ const App = {
   theme: 'dark',
   fontSize: 17,
   useSerif: false,
+  authTab: 'login',
 
   init() {
     this.data = window.CONSTITUTION_DATA;
@@ -21,6 +23,16 @@ const App = {
     // Initialize subsystems
     window.ConstitutionSearch.init(this.data);
     window.TTSEngine.init();
+    if (window.AuthManager) {
+      window.AuthManager.onAuthChange = (user) => {
+        this.updateUserUI(user);
+        this.renderChaptersList();
+        if (this.currentSection) {
+          this.updateReaderReadState();
+        }
+      };
+      window.AuthManager.init();
+    }
 
     // Setup Theme & Preferences
     this.loadUserPreferences();
@@ -35,6 +47,7 @@ const App = {
     this.renderFilterPills();
     this.setupEventListeners();
     this.setupTTSListeners();
+    this.updateUserUI(window.AuthManager ? window.AuthManager.currentUser : null);
 
     // Handle Deep Linking / Hash routing
     this.handleRoute();
@@ -47,11 +60,10 @@ const App = {
   setupServiceWorker() {
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
           .then(registration => {
-            console.log('[PWA] Service Worker registered successfully with scope:', registration.scope);
+            console.log('[PWA] Service Worker registered with root scope:', registration.scope);
 
-            // Check if there is an update
             registration.addEventListener('updatefound', () => {
               const newWorker = registration.installing;
               if (newWorker) {
@@ -63,7 +75,6 @@ const App = {
               }
             });
 
-            // Update offline cache indicator
             this.updateCacheStatus(true);
           })
           .catch(error => {
@@ -71,8 +82,6 @@ const App = {
             this.updateCacheStatus(false);
           });
       });
-    } else {
-      console.log('[PWA] Service Worker not supported in this browser.');
     }
   },
 
@@ -86,12 +95,13 @@ const App = {
       if (!isOnline) {
         banner.classList.add('is-offline');
         if (dot) dot.classList.add('offline');
-        if (statusText) statusText.textContent = 'Offline Mode - 100% Constitution cached and available';
-        this.showToast('You are offline. Full constitutional text is accessible via Cache API.');
+        if (statusText) statusText.textContent = 'Offline Mode - 100% Constitution cached & available';
+        this.showToast('You are offline. Full constitution is active from local Cache API.');
       } else {
         banner.classList.remove('is-offline');
         if (dot) dot.classList.remove('offline');
         if (statusText) statusText.textContent = 'Online & Synced • Ready for offline access';
+        if (window.AuthManager) window.AuthManager.syncOfflineData();
       }
     };
 
@@ -103,7 +113,7 @@ const App = {
   updateCacheStatus(isCached) {
     const cacheBadge = document.getElementById('cacheBadge');
     if (cacheBadge) {
-      cacheBadge.textContent = isCached ? 'Cached for Offline' : 'Cache Pending';
+      cacheBadge.textContent = isCached ? 'Cached for Offline' : 'Cache Active';
     }
   },
 
@@ -168,27 +178,154 @@ const App = {
   },
 
   /* ===================================================================
+     USER AUTHENTICATION & PROGRESS UI
+     =================================================================== */
+  updateUserUI(user) {
+    const btn = document.getElementById('userProfileBtn');
+    if (!btn) return;
+
+    if (user) {
+      const totalRead = window.AuthManager ? window.AuthManager.getTotalRead() : 0;
+      btn.innerHTML = `
+        <span class="user-avatar-dot"></span>
+        <span>${this.escapeHtml(user.name || user.email.split('@')[0])}</span>
+        <span style="font-size:0.7rem; color:var(--gold); margin-left:0.2rem;">(${totalRead}/345)</span>
+      `;
+      btn.title = `Signed in as ${user.email}. Click for account details.`;
+      btn.onclick = () => this.openProfileMenu();
+    } else {
+      btn.innerHTML = `👤 Sign In`;
+      btn.title = `Sign in with email to save reading progress`;
+      btn.onclick = () => this.openAuthModal('login');
+    }
+  },
+
+  openAuthModal(tab = 'login') {
+    const backdrop = document.getElementById('authModalBackdrop');
+    if (backdrop) {
+      backdrop.classList.add('active');
+      this.switchAuthTab(tab);
+      const emailInput = document.getElementById('authEmail');
+      if (emailInput) setTimeout(() => emailInput.focus(), 100);
+    }
+  },
+
+  closeAuthModal() {
+    const backdrop = document.getElementById('authModalBackdrop');
+    if (backdrop) backdrop.classList.remove('active');
+    const errBox = document.getElementById('authErrorBanner');
+    if (errBox) errBox.style.display = 'none';
+  },
+
+  switchAuthTab(tab) {
+    this.authTab = tab;
+    document.querySelectorAll('.auth-tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+
+    const nameGroup = document.getElementById('authNameGroup');
+    const submitBtn = document.getElementById('authSubmitBtn');
+    const subtitle = document.getElementById('authModalSubtitle');
+
+    if (tab === 'register') {
+      if (nameGroup) nameGroup.style.display = 'flex';
+      if (submitBtn) submitBtn.textContent = 'Create Free Account';
+      if (subtitle) subtitle.textContent = 'Sign up by email to track progress across devices';
+    } else {
+      if (nameGroup) nameGroup.style.display = 'none';
+      if (submitBtn) submitBtn.textContent = 'Sign In';
+      if (subtitle) subtitle.textContent = 'Enter your email and password to sync your progress';
+    }
+  },
+
+  async handleAuthSubmit(e) {
+    e.preventDefault();
+    const email = (document.getElementById('authEmail') || {}).value || '';
+    const password = (document.getElementById('authPassword') || {}).value || '';
+    const name = (document.getElementById('authName') || {}).value || '';
+    const errBox = document.getElementById('authErrorBanner');
+    const submitBtn = document.getElementById('authSubmitBtn');
+
+    if (errBox) errBox.style.display = 'none';
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      if (this.authTab === 'register') {
+        await window.AuthManager.register(email, password, name);
+        this.showToast('Account created! Welcome to Zimbabwe Constitution.');
+      } else {
+        await window.AuthManager.login(email, password);
+        this.showToast('Signed in successfully! Progress synced.');
+      }
+      this.closeAuthModal();
+    } catch (err) {
+      if (errBox) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'block';
+      }
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  },
+
+  openProfileMenu() {
+    const user = window.AuthManager ? window.AuthManager.currentUser : null;
+    if (!user) {
+      this.openAuthModal('login');
+      return;
+    }
+
+    const totalRead = window.AuthManager.getTotalRead();
+    const pct = window.AuthManager.getPercentage();
+
+    const doLogout = confirm(
+      `Signed in as:\n${user.email}\n\nReading Progress:\n${totalRead} of 345 sections completed (${pct}%)\n\nWould you like to sign out?`
+    );
+    if (doLogout) {
+      window.AuthManager.logout();
+      this.showToast('Signed out.');
+    }
+  },
+
+  async toggleSectionRead() {
+    if (!this.currentSection) return;
+    const isNowRead = await window.AuthManager.toggleRead(
+      this.currentSection.number,
+      this.currentSection.chapterNumber
+    );
+    this.updateReaderReadState();
+    const pct = window.AuthManager.getPercentage();
+    this.showToast(isNowRead ? `Section ${this.currentSection.number} marked as read (${pct}% complete)!` : `Section marked as unread.`);
+  },
+
+  updateReaderReadState() {
+    if (!this.currentSection) return;
+    const isRead = window.AuthManager ? window.AuthManager.isSectionRead(this.currentSection.number) : false;
+    const btn = document.getElementById('btnMarkRead');
+    if (btn) {
+      btn.textContent = isRead ? '✓ Completed' : 'Mark as Read';
+      btn.classList.toggle('is-read', isRead);
+    }
+  },
+
+  /* ===================================================================
      NAVIGATION & ROUTING
      =================================================================== */
   switchTab(tabName) {
     this.currentTab = tabName;
 
-    // Update tab panes
     document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
     const targetPane = document.getElementById(`tab-${tabName}`);
     if (targetPane) targetPane.classList.add('active');
 
-    // Update bottom nav active state
     document.querySelectorAll('.nav-item').forEach(el => {
       el.classList.toggle('active', el.dataset.tab === tabName);
     });
 
-    // Update desktop nav links
     document.querySelectorAll('.desktop-nav-link').forEach(el => {
       el.classList.toggle('active', el.dataset.tab === tabName);
     });
 
-    // Specific tab triggers
     if (tabName === 'bookmarks') {
       this.renderBookmarksList();
     } else if (tabName === 'search') {
@@ -223,13 +360,34 @@ const App = {
   },
 
   /* ===================================================================
-     CHAPTERS ACCORDION VIEW
+     CHAPTERS ACCORDION & PROGRESS CARD
      =================================================================== */
   renderChaptersList() {
     const container = document.getElementById('chaptersContainer');
     if (!container) return;
 
+    const totalRead = window.AuthManager ? window.AuthManager.getTotalRead() : 0;
+    const pct = window.AuthManager ? window.AuthManager.getPercentage() : 0;
+    const lastSection = window.AuthManager && window.AuthManager.currentUser ? window.AuthManager.currentUser.last_section_number : 1;
+
     let html = `
+      <!-- User Reading Progress Card -->
+      <div class="progress-card">
+        <div class="progress-header">
+          <span class="progress-title">📊 Your Constitutional Progress</span>
+          <span class="progress-stats"><strong>${totalRead}</strong> / 345 sections (${pct}%)</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" style="width: ${pct}%;"></div>
+        </div>
+        <div class="progress-footer">
+          <span>${pct >= 100 ? '🎉 Entire Constitution Completed!' : 'Keep reading to complete Zimbabwe\'s Supreme Law'}</span>
+          <button class="btn-resume" onclick="App.openSection(${lastSection})">
+            Resume Section ${lastSection} →
+          </button>
+        </div>
+      </div>
+
       <div class="chapter-card" style="border-left: 4px solid var(--gold);">
         <div class="chapter-header" onclick="App.openPreamble()">
           <div class="ch-info">
@@ -248,30 +406,47 @@ const App = {
       const lastSec = ch.sections[sectionCount - 1] ? ch.sections[sectionCount - 1].number : '';
       const rangeText = sectionCount > 0 ? `Sections ${firstSec} – ${lastSec} (${sectionCount} sections)` : 'Overview';
 
+      // Count read in this chapter
+      let chReadCount = 0;
+      if (window.AuthManager) {
+        ch.sections.forEach(s => {
+          if (window.AuthManager.isSectionRead(s.number)) chReadCount++;
+        });
+      }
+
       html += `
         <div class="chapter-card" id="chapterCard-${ch.number}">
           <div class="chapter-header" onclick="App.toggleChapter(${ch.number})">
             <div class="ch-info">
-              <span class="ch-tag">Chapter ${ch.number}</span>
+              <span class="ch-tag">
+                Chapter ${ch.number}
+                ${chReadCount > 0 ? `<span class="read-badge">${chReadCount}/${sectionCount} read</span>` : ''}
+              </span>
               <h3 class="ch-title">${this.escapeHtml(ch.title)}</h3>
               <span class="ch-meta">${rangeText}</span>
             </div>
             <span class="ch-chevron">▼</span>
           </div>
           <div class="sections-list" id="sectionsList-${ch.number}">
-            ${ch.sections.map(sec => `
-              <div class="section-item" onclick="App.openSection(${sec.number})">
-                <div class="sec-left">
-                  <span class="sec-num">${sec.number}</span>
-                  <span class="sec-title">${this.escapeHtml(sec.title)}</span>
+            ${ch.sections.map(sec => {
+              const isRead = window.AuthManager ? window.AuthManager.isSectionRead(sec.number) : false;
+              return `
+                <div class="section-item" onclick="App.openSection(${sec.number})">
+                  <div class="sec-left">
+                    <span class="sec-num">${sec.number}</span>
+                    <span class="sec-title">
+                      ${this.escapeHtml(sec.title)}
+                      ${isRead ? '<span class="read-badge">✓ Read</span>' : ''}
+                    </span>
+                  </div>
+                  <div class="sec-actions">
+                    <button class="btn-mini-listen" onclick="event.stopPropagation(); App.quickPlaySection(${sec.number})" title="Play conversational audio">
+                      🎧 Listen
+                    </button>
+                  </div>
                 </div>
-                <div class="sec-actions">
-                  <button class="btn-mini-listen" onclick="event.stopPropagation(); App.quickPlaySection(${sec.number})" title="Play conversational audio">
-                    🎧 Listen
-                  </button>
-                </div>
-              </div>
-            `).join('')}
+              `;
+            }).join('')}
           </div>
         </div>
       `;
@@ -282,9 +457,7 @@ const App = {
 
   toggleChapter(chNumber) {
     const card = document.getElementById(`chapterCard-${chNumber}`);
-    if (card) {
-      card.classList.toggle('expanded');
-    }
+    if (card) card.classList.toggle('expanded');
   },
 
   expandChapter(chNumber) {
@@ -316,8 +489,8 @@ const App = {
 
     const isBookmarked = window.BookmarksManager.isBookmarked(secNum);
     const existingNote = window.BookmarksManager.getNote(secNum);
+    const isRead = window.AuthManager ? window.AuthManager.isSectionRead(secNum) : false;
 
-    // Format content paragraphs
     const paragraphs = section.content.split('\n\n').filter(p => p.trim());
     const formattedParagraphs = paragraphs.length > 0 
       ? paragraphs.map((p, idx) => `
@@ -335,6 +508,9 @@ const App = {
             ← Back to Chapters
           </button>
           <div class="reader-controls-right">
+            <button class="btn-mark-read ${isRead ? 'is-read' : ''}" id="btnMarkRead" onclick="App.toggleSectionRead()" title="Track your reading progress">
+              ${isRead ? '✓ Completed' : 'Mark as Read'}
+            </button>
             <button class="btn-pill" onclick="App.toggleSerif()" title="Toggle Serif / Sans-serif">
               ${this.useSerif ? 'Sans' : 'Serif'}
             </button>
@@ -470,6 +646,7 @@ const App = {
       btn.classList.toggle('active', isNow);
     }
     this.showToast(isNow ? 'Section added to bookmarks!' : 'Bookmark removed.');
+    if (window.AuthManager) window.AuthManager.syncOfflineData();
   },
 
   saveCurrentNote() {
@@ -482,6 +659,7 @@ const App = {
         status.textContent = 'Saved to device storage';
         setTimeout(() => { if (status) status.textContent = ''; }, 2500);
       }
+      if (window.AuthManager) window.AuthManager.syncOfflineData();
     }
   },
 
@@ -572,7 +750,6 @@ const App = {
     };
 
     window.TTSEngine.onParagraphChange = (item, index) => {
-      // Clear previous active highlights in reader
       document.querySelectorAll('.reader-paragraph').forEach(el => {
         el.classList.remove('speaking-active');
       });
@@ -718,7 +895,6 @@ const App = {
      EVENT LISTENERS & UTILITIES
      =================================================================== */
   setupEventListeners() {
-    // Search input debounce
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
       let debounceTimer = null;
@@ -728,7 +904,6 @@ const App = {
       });
     }
 
-    // TTS Speed selector
     const speedSelect = document.getElementById('speedSelect');
     if (speedSelect) {
       speedSelect.value = window.TTSEngine.rate.toString();
@@ -737,7 +912,6 @@ const App = {
       });
     }
 
-    // Voice selector
     const voiceSelect = document.getElementById('voiceSelect');
     if (voiceSelect) {
       voiceSelect.addEventListener('change', (e) => {
@@ -745,7 +919,6 @@ const App = {
       });
     }
 
-    // Conversational toggle
     const convCheckbox = document.getElementById('convModeCheckbox');
     if (convCheckbox) {
       convCheckbox.checked = window.TTSEngine.conversationalMode;

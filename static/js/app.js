@@ -8,7 +8,7 @@ const App = {
   data: null,
   currentSection: null,
   currentTab: 'chapters',
-  theme: 'dark',
+  theme: 'warm',
   fontSize: 17,
   useSerif: false,
   authTab: 'login',
@@ -122,7 +122,7 @@ const App = {
      =================================================================== */
   loadUserPreferences() {
     try {
-      const savedTheme = localStorage.getItem('zim_theme') || 'dark';
+      const savedTheme = localStorage.getItem('zim_theme') || 'warm';
       this.setTheme(savedTheme);
 
       const savedSize = localStorage.getItem('zim_font_size');
@@ -148,10 +148,17 @@ const App = {
   },
 
   cycleTheme() {
-    const themes = ['dark', 'light', 'sepia'];
+    const themes = ['warm', 'dark', 'sepia'];
     const nextIdx = (themes.indexOf(this.theme) + 1) % themes.length;
     this.setTheme(themes[nextIdx]);
+    const labels = {
+      'warm': 'Warm Sunlit Ivory',
+      'dark': 'Warm Sunset Roast',
+      'sepia': 'Golden Antiquarian'
+    };
+    this.showToast(`Theme: ${labels[themes[nextIdx]] || themes[nextIdx]}`);
   },
+
 
   changeFontSize(delta) {
     this.fontSize = Math.max(14, Math.min(24, this.fontSize + delta));

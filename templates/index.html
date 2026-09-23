@@ -1,12 +1,12 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="warm">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <title>Constitution of Zimbabwe - Interactive Audio & Offline Law</title>
   <meta name="description" content="Complete Constitution of Zimbabwe (2013) with searchable chapters, sections, conversational text-to-speech audio, and 100% offline access via Service Worker.">
-  <meta name="theme-color" content="#006400">
+  <meta name="theme-color" content="#c25e1a">
   
   <!-- Web App Manifest for mobile home screen & PWA -->
   <link rel="manifest" href="/manifest.json">
@@ -51,7 +51,7 @@
           <button class="icon-btn" onclick="App.switchTab('search')" title="Search Constitution">
             🔍
           </button>
-          <button class="icon-btn" onclick="App.cycleTheme()" title="Switch Theme (Dark, Light, Sepia)">
+          <button class="icon-btn" onclick="App.cycleTheme()" title="Switch Theme (Warm Sun, Warm Dark, Sepia)">
             🌓
           </button>
         </div>
@@ -72,10 +72,43 @@
 
       <!-- 1. CHAPTERS ACCORDION PANE -->
       <section id="tab-chapters" class="tab-pane active">
+
+        <!-- Welcoming Hero Banner -->
+        <div class="welcome-hero">
+          <div class="welcome-badge-pill">🇿🇼 Mauya • Samukele • Welcome</div>
+          <h1 class="welcome-title">The Constitution of Zimbabwe</h1>
+          <p class="welcome-quote">
+            "United in our diversity by our common desire for freedom, justice and equality... we hereby make this Constitution as the supreme law of Zimbabwe."
+          </p>
+          <div class="welcome-actions-grid">
+            <div class="welcome-action-card" onclick="App.openSection(44)">
+              <span class="welcome-action-icon">🛡️</span>
+              <span class="welcome-action-label">Bill of Rights</span>
+              <span class="welcome-action-sub">Chapter 4 (Sec 44-87)</span>
+            </div>
+            <div class="welcome-action-card" onclick="App.switchTab('audio')">
+              <span class="welcome-action-icon">🎧</span>
+              <span class="welcome-action-label">Audio Lounge</span>
+              <span class="welcome-action-sub">Conversational Narrator</span>
+            </div>
+            <div class="welcome-action-card" onclick="App.switchTab('search')">
+              <span class="welcome-action-icon">🔍</span>
+              <span class="welcome-action-label">Instant Search</span>
+              <span class="welcome-action-sub">345 Sections & Keywords</span>
+            </div>
+            <div class="welcome-action-card" onclick="App.openPreamble()">
+              <span class="welcome-action-icon">📜</span>
+              <span class="welcome-action-label">Read Preamble</span>
+              <span class="welcome-action-sub">Founding Values</span>
+            </div>
+          </div>
+        </div>
+
         <div class="view-header">
           <h2 class="view-title">Constitutional Chapters</h2>
           <p class="view-subtitle">Select any chapter to explore parts, sections, and track your reading progress.</p>
         </div>
+
         <div id="chaptersContainer">
           <!-- Populated dynamically by App.renderChaptersList() -->
         </div>

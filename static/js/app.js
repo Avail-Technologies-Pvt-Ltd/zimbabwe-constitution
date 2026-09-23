@@ -284,13 +284,47 @@ const App = {
 
     const totalRead = window.AuthManager.getTotalRead();
     const pct = window.AuthManager.getPercentage();
+    const isPremium = user.is_premium;
 
-    const doLogout = confirm(
-      `Signed in as:\n${user.email}\n\nReading Progress:\n${totalRead} of 345 sections completed (${pct}%)\n\nWould you like to sign out?`
+    const action = confirm(
+      `👤 Profile: ${user.name || 'Citizen'}\n` +
+      `📧 Email: ${user.email}\n` +
+      `📊 Reading Progress: ${totalRead}/345 sections (${pct}%)\n` +
+      `🌟 Account Tier: ${isPremium ? 'Premium (ElevenLabs AI Voice Active)' : 'Standard Free Tier'}\n\n` +
+      `[OK] = Toggle Demo Premium Status\n` +
+      `[Cancel] = Sign Out / Keep Status`
     );
-    if (doLogout) {
-      window.AuthManager.logout();
-      this.showToast('Signed out.');
+
+    if (action) {
+      this.toggleDemoPremium();
+    } else {
+      const doLogout = confirm('Do you want to sign out of your account?');
+      if (doLogout) {
+        window.AuthManager.logout();
+        this.showToast('Signed out.');
+      }
+    }
+  },
+
+  async toggleDemoPremium() {
+    try {
+      const res = await fetch('/api/tts/toggle-demo-premium/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': window.AuthManager ? window.AuthManager.getCSRFToken() : ''
+        }
+      });
+      const data = await res.json();
+      if (res.ok && window.AuthManager && window.AuthManager.currentUser) {
+        window.AuthManager.currentUser.is_premium = data.is_premium;
+        window.AuthManager.saveOfflineProgress();
+        this.updateUserUI(window.AuthManager.currentUser);
+        this.renderVoiceOptions();
+        this.showToast(`Tier updated: ${data.is_premium ? '🌟 Premium Active (ElevenLabs enabled)' : 'Standard Free Tier'}`);
+      }
+    } catch (e) {
+      console.error('Failed to toggle demo premium:', e);
     }
   },
 
@@ -1105,17 +1139,28 @@ const App = {
     const select = document.getElementById('voiceSelect');
     if (!select) return;
 
-    const voices = window.TTSEngine.voices;
-    if (voices.length === 0) {
-      select.innerHTML = '<option value="">Default Conversational Voice</option>';
-      return;
-    }
+    const voices = window.TTSEngine.voices || [];
+    const isPremium = window.AuthManager && window.AuthManager.currentUser && window.AuthManager.currentUser.is_premium;
+    const isEleven = window.TTSEngine.isElevenLabs;
 
-    select.innerHTML = voices.map(v => `
-      <option value="${v.voiceURI}" ${v === window.TTSEngine.selectedVoice ? 'selected' : ''}>
-        ${v.name} (${v.lang})
-      </option>
-    `).join('');
+    let html = `
+      <optgroup label="✨ AI Voices (Premium Tier)">
+        <option value="elevenlabs" ${isEleven ? 'selected' : ''}>
+          🌟 ElevenLabs AI Voice ${isPremium ? '(Active Premium)' : '(Premium Tier)'}
+        </option>
+      </optgroup>
+      <optgroup label="🗣️ Standard Voices (Free & Offline)">
+        <option value="" ${(!isEleven && !window.TTSEngine.selectedVoice) ? 'selected' : ''}>
+          Default Device Conversational Voice
+        </option>
+        ${voices.map(v => `
+          <option value="${v.voiceURI}" ${(!isEleven && v === window.TTSEngine.selectedVoice) ? 'selected' : ''}>
+            ${v.name} (${v.lang})
+          </option>
+        `).join('')}
+      </optgroup>
+    `;
+    select.innerHTML = html;
   },
 
   /* ===================================================================
@@ -1187,8 +1232,36 @@ const App = {
 
     const voiceSelect = document.getElementById('voiceSelect');
     if (voiceSelect) {
-      voiceSelect.addEventListener('change', (e) => {
-        window.TTSEngine.setVoice(e.target.value);
+      voiceSelect.addEventListener('change', async (e) => {
+        const val = e.target.value;
+        if (val === 'elevenlabs') {
+          const user = window.AuthManager ? window.AuthManager.currentUser : null;
+          if (!user) {
+            this.showToast('Please sign in with email to use ElevenLabs AI Voice.');
+            this.openAuthModal('login');
+            window.TTSEngine.setVoice('');
+            this.renderVoiceOptions();
+            return;
+          }
+          if (!user.is_premium) {
+            const doDemo = confirm(
+              '🌟 ElevenLabs AI Voice is for Premium subscribers.\n\nWould you like to activate the Demo Premium Pass for your account to test it right now?'
+            );
+            if (doDemo) {
+              await this.toggleDemoPremium();
+              window.TTSEngine.setVoice('elevenlabs');
+              this.renderVoiceOptions();
+            } else {
+              window.TTSEngine.setVoice('');
+              this.renderVoiceOptions();
+            }
+            return;
+          }
+          window.TTSEngine.setVoice('elevenlabs');
+          this.showToast('ElevenLabs AI Voice active!');
+        } else {
+          window.TTSEngine.setVoice(val);
+        }
       });
     }
 

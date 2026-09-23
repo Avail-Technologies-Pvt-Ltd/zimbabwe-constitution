@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
@@ -7,13 +8,13 @@
   <meta name="description" content="Complete Constitution of Zimbabwe (2013) with searchable chapters, sections, conversational text-to-speech audio, and 100% offline access via Service Worker.">
   <meta name="theme-color" content="#006400">
   
-  <!-- Web App Manifest for mobile home screen -->
-  <link rel="manifest" href="./manifest.json">
-  <link rel="icon" type="image/svg+xml" href="./icons/icon-192.svg">
-  <link rel="apple-touch-icon" href="./icons/icon-192.svg">
+  <!-- Web App Manifest for mobile home screen & PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="{% static 'icons/icon-192.svg' %}">
+  <link rel="apple-touch-icon" href="{% static 'icons/icon-192.svg' %}">
 
   <!-- Core Stylesheet -->
-  <link rel="stylesheet" href="./css/styles.css">
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 </head>
 <body>
   <div class="app-container">
@@ -22,7 +23,7 @@
     <header class="app-header">
       <div class="header-content">
         <a class="brand" onclick="App.switchTab('chapters')">
-          <img src="./icons/icon-192.svg" alt="Zimbabwe Emblem" class="brand-icon">
+          <img src="{% static 'icons/icon-192.svg' %}" alt="Zimbabwe Emblem" class="brand-icon">
           <div class="brand-titles">
             <span class="brand-title">
               Zim Constitution
@@ -72,7 +73,7 @@
           <p class="view-subtitle">Select any chapter to explore parts, sections, and legal provisions.</p>
         </div>
         <div id="chaptersContainer">
-          <!-- Populated by App.renderChaptersList() -->
+          <!-- Populated dynamically by App.renderChaptersList() -->
         </div>
       </section>
 
@@ -155,7 +156,7 @@
           </div>
         </div>
 
-        <!-- Quick Listening Recommendations -->
+        <!-- Recommended Audio Passages -->
         <div style="margin-top: 1.5rem;">
           <h4 style="font-size: 1rem; font-weight:700; margin-bottom: 0.75rem; color: var(--gold);">Recommended Audio Passages</h4>
           <div class="rights-grid">
@@ -302,10 +303,10 @@
   </div>
 
   <!-- Scripts -->
-  <script src="./js/constitution-data.js"></script>
-  <script src="./js/bookmarks.js"></script>
-  <script src="./js/search.js"></script>
-  <script src="./js/tts-engine.js"></script>
-  <script src="./js/app.js"></script>
+  <script src="{% static 'js/constitution-data.js' %}"></script>
+  <script src="{% static 'js/bookmarks.js' %}"></script>
+  <script src="{% static 'js/search.js' %}"></script>
+  <script src="{% static 'js/tts-engine.js' %}"></script>
+  <script src="{% static 'js/app.js' %}"></script>
 </body>
 </html>

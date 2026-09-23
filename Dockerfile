@@ -1,37 +1,41 @@
 # ===================================================================
-# Dockerfile - Production Web Server for Zimbabwean Constitution Website
-# Optimized Alpine Nginx Image
+# Dockerfile - Production Django Server for Constitution Website
+# Uses Python 3.10-slim + Gunicorn + WhiteNoise
 # ===================================================================
 
-FROM nginx:1.27-alpine
+FROM python:3.10-slim
 
-LABEL maintainer="Avail Technologies <info@availtechnologies.co.zw>"
-LABEL description="Constitution of Zimbabwe (2013) Mobile-Friendly Web Application"
+# Prevent Python from writing .pyc and buffer stdout/stderr
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV APP_ENV=production
 
-# Remove default nginx static assets and config
-RUN rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-# Copy custom Nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy application assets
-COPY index.html /usr/share/nginx/html/
-COPY manifest.json /usr/share/nginx/html/
-COPY sw.js /usr/share/nginx/html/
-COPY css/ /usr/share/nginx/html/css/
-COPY js/ /usr/share/nginx/html/js/
-COPY data/ /usr/share/nginx/html/data/
-COPY icons/ /usr/share/nginx/html/icons/
+# Install python dependencies
+COPY requirements.txt /app/
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Ensure proper permissions
-RUN chmod -R 755 /usr/share/nginx/html
+# Copy application source code
+COPY . /app/
 
-# Expose standard HTTP port
-EXPOSE 80
+# Collect static files into STATIC_ROOT
+RUN python manage.py collectstatic --noinput
+
+# Run migrations on startup or build
+RUN python manage.py migrate --noinput
+
+# Expose Django port
+EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost/index.html || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8000/health/ || exit 1
 
-# Start Nginx in foreground
-CMD ["nginx", "-g", "daemon off;"]
+# Start Gunicorn WSGI server
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]

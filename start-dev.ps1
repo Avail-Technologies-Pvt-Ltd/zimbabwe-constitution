@@ -1,20 +1,16 @@
-# 1-Click Dev Start (PowerShell)
+# 1-Click Django Dev Start (PowerShell)
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 Set-Location $ScriptDir
 
 Write-Host "===============================================================" -ForegroundColor Green
-Write-Host "  ZIMBABWEAN CONSTITUTION - 1-CLICK DEV START (.env dev)" -ForegroundColor Green
+Write-Host "  ZIMBABWEAN CONSTITUTION - DJANGO 1-CLICK DEV START (.env dev)" -ForegroundColor Green
 Write-Host "===============================================================" -ForegroundColor Green
 
-if (-not (Test-Path ".env.dev")) {
-    Write-Host "Creating default .env.dev configuration..." -ForegroundColor Yellow
-    @"
-PORT=8000
-HOST=0.0.0.0
-APP_ENV=development
-APP_TITLE="Constitution of Zimbabwe (Dev)"
-AUTO_OPEN_BROWSER=true
-"@ | Out-File -FilePath ".env.dev" -Encoding utf8
-}
+python manage.py migrate --noinput
 
-python scripts/serve.py
+Start-Job -ScriptBlock {
+    Start-Sleep -Seconds 2
+    Start-Process "http://localhost:8000"
+} | Out-Null
+
+python manage.py runserver 0.0.0.0:8000

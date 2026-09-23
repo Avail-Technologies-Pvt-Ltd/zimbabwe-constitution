@@ -10,8 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  # Replace with your Docker Hub repository: <username>/<image-name>
-  IMAGE_NAME: zim-constitution
+  IMAGE_NAME: zimbabwe-constitution
 
 jobs:
   build-and-push:

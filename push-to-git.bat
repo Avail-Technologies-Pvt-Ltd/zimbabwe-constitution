@@ -1,83 +1,51 @@
 @echo off
-title 1-Click Push to Git
+title 1-Click Push to Git - Avail Technologies
 cd /d "%~dp0"
 
 echo ===============================================================
-echo   ZIMBABWEAN CONSTITUTION - 1-CLICK PUSH TO GIT
+echo   ZIMBABWEAN CONSTITUTION (DJANGO) - 1-CLICK PUSH TO GIT
+echo   Target Repo: https://github.com/Avail-Technologies-Pvt-Ltd/zimbabwe-constitution
 echo ===============================================================
 echo.
 
-:: 1. Check Git Installation
-git --version >nul 2>&1
-if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Git is not installed or not in PATH!
-    pause
-    exit /b 1
-)
-
-:: 2. Initialize Git if not already done
-if not exist ".git" (
-    echo Initializing new Git repository...
-    git init
-    git branch -M main
-    echo.
-)
-
-:: 3. Check for remote origin
+:: 1. Ensure remote is set
 git remote get-url origin >nul 2>&1
 if %ERRORLEVEL% neq 0 (
-    echo [NOTICE] No remote 'origin' found.
-    set /p REMOTE_URL="Enter your remote GitHub repository URL (e.g. https://github.com/user/repo.git): "
-    if not "%REMOTE_URL%"=="" (
-        git remote add origin %REMOTE_URL%
-        echo Remote added: %REMOTE_URL%
-    ) else (
-        echo [WARNING] No remote configured. Commits will be made locally only.
-    )
-    echo.
+    git remote add origin https://github.com/Avail-Technologies-Pvt-Ltd/zimbabwe-constitution.git
+    echo Remote configured: https://github.com/Avail-Technologies-Pvt-Ltd/zimbabwe-constitution.git
 )
 
-:: 4. Stage all changes
+:: 2. Stage changes
 echo Staging files...
 git add -A
 
-:: 5. Get current date/time for default commit message
+:: 3. Timestamped commit
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set dt=%%I
 set TIMESTAMP=%dt:~0,4%-%dt:~4,2%-%dt:~6,2% %dt:~8,2%:%dt:~10,2%
 
 echo.
-set /p COMMIT_MSG="Enter commit message (Press Enter for 'Update [%TIMESTAMP%]'): "
-if "%COMMIT_MSG%"=="" set COMMIT_MSG=Update Constitution website [%TIMESTAMP%]
+set /p COMMIT_MSG="Enter commit message (Press Enter for 'Update Django Constitution [%TIMESTAMP%]'): "
+if "%COMMIT_MSG%"=="" set COMMIT_MSG=Update Django Constitution [%TIMESTAMP%]
 
-:: 6. Commit
 echo.
 echo Committing changes...
 git commit -m "%COMMIT_MSG%"
 
-:: 7. Push to Remote
-git remote get-url origin >nul 2>&1
+:: 4. Push to origin main
+echo.
+echo Pushing to GitHub (https://github.com/Avail-Technologies-Pvt-Ltd/zimbabwe-constitution)...
+git push -u origin main
+
 if %ERRORLEVEL% equ 0 (
     echo.
-    echo Pushing to remote repository...
-    for /f %%b in ('git branch --show-current') do set CURRENT_BRANCH=%%b
-    if "%CURRENT_BRANCH%"=="" set CURRENT_BRANCH=main
-
-    git push -u origin %CURRENT_BRANCH%
-    if %ERRORLEVEL% equ 0 (
-        echo.
-        echo ===============================================================
-        echo   SUCCESSFULLY PUSHED TO GIT!
-        echo   Branch: %CURRENT_BRANCH%
-        echo   Docker Hub action workflow will trigger automatically.
-        echo ===============================================================
-    ) else (
-        echo.
-        echo [ERROR] Failed to push to remote. Please check credentials or network.
-    )
+    echo ===============================================================
+    echo   SUCCESS! Changes pushed to GitHub repository.
+    echo   Docker Hub workflow has been triggered automatically.
+    echo ===============================================================
 ) else (
-    echo Changes committed locally. To push to GitHub later, run:
-    echo   git remote add origin YOUR_REPO_URL
-    echo   git push -u origin main
+    echo.
+    echo [ERROR] Push failed. If authentication is needed, please ensure
+    echo you are logged into GitHub via Git Credential Manager or GitHub CLI.
 )
 
 echo.

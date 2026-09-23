@@ -4,6 +4,7 @@ cd /d "%~dp0"
 
 echo ===============================================================
 echo   ZIMBABWEAN CONSTITUTION - 1-CLICK DOCKER PROD START
+echo   Port: 8088
 echo ===============================================================
 echo.
 
@@ -20,17 +21,17 @@ if %ERRORLEVEL% neq 0 (
 if not exist ".env.prod" (
     echo Creating default .env.prod...
     (
-        echo PORT=8080
+        echo PORT=8088
         echo HOST=0.0.0.0
         echo APP_ENV=production
         echo APP_TITLE="Constitution of Zimbabwe"
-        echo DOCKER_IMAGE=turbulance/zim-constitution:latest
+        echo DOCKER_IMAGE=availtechnologies/zimbabwe-constitution:latest
         echo RESTART_POLICY=unless-stopped
     ) > .env.prod
 )
 
 echo Building and launching Production Docker container...
-echo Port mapped to: http://localhost:8080
+echo Port mapped to: http://localhost:8088
 echo.
 
 docker compose --env-file .env.prod up --build -d
@@ -39,11 +40,11 @@ if %ERRORLEVEL% equ 0 (
     echo.
     echo ===============================================================
     echo   CONTAINER RUNNING SUCCESSFULLY!
-    echo   Website available at: http://localhost:8080
+    echo   Website available at: http://localhost:8088
     echo ===============================================================
     echo.
     echo Launching browser...
-    start http://localhost:8080
+    start http://localhost:8088
 ) else (
     echo.
     echo [ERROR] Docker build/start failed! Check docker daemon.

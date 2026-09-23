@@ -4,6 +4,7 @@ cd /d "%~dp0"
 
 echo ===============================================================
 echo   ZIMBABWEAN CONSTITUTION - DJANGO 1-CLICK DEV START
+echo   Port: 8088
 echo ===============================================================
 echo.
 
@@ -20,12 +21,12 @@ echo Checking database migrations...
 python manage.py migrate --noinput
 
 :: Open browser after 2 seconds
-start /b cmd /c "timeout /t 2 >nul & start http://localhost:8000"
+start /b cmd /c "timeout /t 2 >nul & start http://localhost:8088"
 
 echo.
-echo Starting Django Development Server at http://localhost:8000 ...
+echo Starting Django Development Server at http://localhost:8088 ...
 echo Press Ctrl+C to stop the server.
 echo ===============================================================
-python manage.py runserver 0.0.0.0:8000
+python manage.py runserver 0.0.0.0:8088
 
 pause

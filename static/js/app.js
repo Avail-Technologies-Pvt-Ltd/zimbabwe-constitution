@@ -423,10 +423,7 @@ const App = {
   },
 
   /* ===================================================================
-     CHAPTERS ACCORDION & PROGRESS CARD
-     =================================================================== */
-  /* ===================================================================
-     CHAPTERS SPOTIFY TRACKLIST
+     BOOK TABLE OF CONTENTS (TOC)
      =================================================================== */
   renderChaptersList() {
     const container = document.getElementById('chaptersContainer');
@@ -434,42 +431,42 @@ const App = {
 
     const totalRead = window.AuthManager ? window.AuthManager.getTotalRead() : 0;
     const pct = window.AuthManager ? window.AuthManager.getPercentage() : 0;
-    const lastSection = window.AuthManager && window.AuthManager.currentUser ? window.AuthManager.currentUser.last_section_number : 1;
 
     // Update overall header meta
     const progressMeta = document.getElementById('overallProgressText');
     if (progressMeta) {
-      progressMeta.innerHTML = `<i class="fa-solid fa-check"></i> ${totalRead} of 345 sections (${pct}%)`;
+      progressMeta.innerHTML = `<span class="toc-progress-text"><i class="fa-solid fa-bookmark" style="color:var(--gold);"></i> ${totalRead} of 345 sections completed (${pct}%)</span>`;
     }
 
     let html = `
-      <!-- Preamble Track Row -->
-      <div class="track-row" id="trackRow-0">
-        <div class="track-left" onclick="App.openPreamble()">
-          <span class="track-num"><i class="fa-solid fa-scroll" style="font-size:0.8rem; color:var(--primary);"></i></span>
-          <div class="track-info-group">
-            <h4 class="track-title">Preamble</h4>
-            <span class="track-sub">Founding Charter • "We the people of Zimbabwe..."</span>
+      <!-- Preamble TOC Entry -->
+      <div class="toc-entry" id="trackRow-0">
+        <div class="toc-entry-left" onclick="App.openPreamble()">
+          <span class="toc-roman-num"><i class="fa-solid fa-scroll"></i></span>
+          <div class="toc-title-group">
+            <h3 class="toc-entry-title">Preamble</h3>
+            <span class="toc-entry-sub">Founding Charter & Sovereign Proclamation</span>
           </div>
         </div>
-        <div class="track-right" onclick="event.stopPropagation()">
-          <button class="btn-track-play" onclick="App.quickPlayPreamble()" title="Play Preamble Audio">
-            <i class="fa-solid fa-play"></i>
+        <div class="toc-entry-right" onclick="event.stopPropagation()">
+          <button class="btn-toc-action" onclick="App.quickPlayPreamble()" title="Listen to Preamble">
+            <i class="fa-solid fa-headphones"></i> <span>Listen</span>
           </button>
-          <button class="btn-track-read" onclick="App.openPreamble()" title="Read Preamble">
+          <button class="btn-toc-action btn-toc-read" onclick="App.openPreamble()" title="Read Preamble">
             <i class="fa-solid fa-book-open"></i> <span>Read</span>
           </button>
         </div>
       </div>
     `;
 
+    const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII'];
+
     this.data.chapters.forEach(ch => {
       const sectionCount = ch.sections.length;
       const firstSec = ch.sections[0] ? ch.sections[0].number : '';
       const lastSec = ch.sections[sectionCount - 1] ? ch.sections[sectionCount - 1].number : '';
-      const rangeText = sectionCount > 0 ? `Sections ${firstSec}–${lastSec} • ${sectionCount} sections` : 'Overview';
+      const rangeText = sectionCount > 0 ? `Sections ${firstSec} to ${lastSec}` : 'Overview';
 
-      // Count read in this chapter
       let chReadCount = 0;
       if (window.AuthManager) {
         ch.sections.forEach(s => {
@@ -477,43 +474,43 @@ const App = {
         });
       }
 
-      const padNum = String(ch.number).padStart(2, '0');
+      const roman = romanNumerals[ch.number - 1] || ch.number;
 
       html += `
-        <div class="track-row" id="trackRow-${ch.number}">
-          <div class="track-left" onclick="App.openChapterBlog(${ch.number})">
-            <span class="track-num">${padNum}</span>
-            <div class="track-info-group">
-              <h4 class="track-title">${this.escapeHtml(ch.title)}</h4>
-              <span class="track-sub">${rangeText} ${chReadCount > 0 ? `• <span style="color:#16a34a; font-weight:600;">${chReadCount}/${sectionCount} read</span>` : ''}</span>
+        <div class="toc-entry" id="trackRow-${ch.number}">
+          <div class="toc-entry-left" onclick="App.openChapterBlog(${ch.number})">
+            <span class="toc-roman-num">Chapter ${roman}</span>
+            <div class="toc-title-group">
+              <h3 class="toc-entry-title">${this.escapeHtml(ch.title)}</h3>
+              <span class="toc-entry-sub">${rangeText} ${chReadCount > 0 ? `• <span class="toc-read-badge"><i class="fa-solid fa-check"></i> ${chReadCount}/${sectionCount} read</span>` : ''}</span>
             </div>
           </div>
-          <div class="track-right" onclick="event.stopPropagation()">
-            <button class="btn-track-play" onclick="App.playChapterContinuous(${ch.number})" title="Play Chapter ${ch.number} continuously">
-              <i class="fa-solid fa-play"></i>
+          <div class="toc-entry-right" onclick="event.stopPropagation()">
+            <button class="btn-toc-action" onclick="App.playChapterContinuous(${ch.number})" title="Listen to Chapter ${ch.number}">
+              <i class="fa-solid fa-headphones"></i> <span>Listen</span>
             </button>
-            <button class="btn-track-read" onclick="App.openChapterBlog(${ch.number})" title="Read Chapter ${ch.number}">
+            <button class="btn-toc-action btn-toc-read" onclick="App.openChapterBlog(${ch.number})" title="Read Chapter ${ch.number}">
               <i class="fa-solid fa-book-open"></i> <span>Read</span>
             </button>
-            <button class="btn-track-expand" onclick="App.toggleChapter(${ch.number})" title="Show Sections">
+            <button class="btn-toc-expand" onclick="App.toggleChapter(${ch.number})" title="View Clauses">
               <i class="fa-solid fa-chevron-down"></i>
             </button>
           </div>
         </div>
-        <div class="track-subsections" id="sectionsList-${ch.number}">
+        <div class="toc-clauses-wrapper" id="sectionsList-${ch.number}">
           ${ch.sections.map(sec => {
             const isRead = window.AuthManager ? window.AuthManager.isSectionRead(sec.number) : false;
             return `
-              <div class="subtrack-item" onclick="App.openSection(${sec.number})">
-                <div class="subtrack-left">
-                  <span class="subtrack-sec-num">Sec ${sec.number}</span>
-                  <span class="subtrack-title">
+              <div class="toc-clause-row" onclick="App.openSection(${sec.number})">
+                <div class="toc-clause-left">
+                  <span class="toc-section-symbol">§ ${sec.number}</span>
+                  <span class="toc-clause-title">
                     ${this.escapeHtml(sec.title)}
-                    ${isRead ? ' <span style="color:#16a34a; font-size:0.75rem;"><i class="fa-solid fa-check"></i></span>' : ''}
+                    ${isRead ? ' <span class="clause-read-icon"><i class="fa-solid fa-check"></i></span>' : ''}
                   </span>
                 </div>
-                <button class="btn-sec-action" onclick="event.stopPropagation(); App.playChapterContinuous(${ch.number}, ${sec.number})" title="Play from Section ${sec.number}">
-                  <i class="fa-solid fa-play"></i>
+                <button class="btn-clause-listen" onclick="event.stopPropagation(); App.playChapterContinuous(${ch.number}, ${sec.number})" title="Listen to § ${sec.number}">
+                  <i class="fa-solid fa-headphones"></i>
                 </button>
               </div>
             `;
@@ -526,22 +523,37 @@ const App = {
   },
 
   toggleChapter(chNumber) {
-    const card = document.getElementById(`chapterCard-${chNumber}`);
-    if (card) card.classList.toggle('expanded');
-  },
-
-  expandChapter(chNumber) {
-    const card = document.getElementById(`chapterCard-${chNumber}`);
-    if (card) {
-      card.classList.add('expanded');
-      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const row = document.getElementById(`trackRow-${chNumber}`);
+    const list = document.getElementById(`sectionsList-${chNumber}`);
+    if (row && list) {
+      const isExpanded = row.classList.contains('expanded');
+      row.classList.toggle('expanded', !isExpanded);
+      list.style.display = isExpanded ? 'none' : 'block';
     }
   },
 
   /* ===================================================================
-     CHAPTER BLOG VIEW & READING SCROLL PROGRESS
-     Warm accents of white, editorial card formatting, sticky progress
+     BOOK CHAPTER EDITORIAL READING VIEW & PROGRESS
      =================================================================== */
+  setupReadingScrollProgress() {
+    const scrollBar = document.getElementById('chapterScrollProgress');
+    if (!scrollBar) return;
+    const updateProgress = () => {
+      if (this.currentTab !== 'chapter-blog') return;
+      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (totalHeight > 0) {
+        const progress = (window.scrollY / totalHeight) * 100;
+        scrollBar.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+      }
+    };
+    if (this._scrollHandler) {
+      window.removeEventListener('scroll', this._scrollHandler);
+    }
+    this._scrollHandler = updateProgress;
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+  },
+
   findChapter(chNumber) {
     return this.data.chapters.find(c => c.number === Number(chNumber)) || null;
   },
@@ -573,84 +585,91 @@ const App = {
       });
     }
 
+    const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII'];
+    const roman = romanNumerals[ch.number - 1] || ch.number;
+
     const firstSec = ch.sections[0] ? ch.sections[0].number : 1;
     const lastSec = ch.sections[sectionCount - 1] ? ch.sections[sectionCount - 1].number : 1;
 
     let html = `
-      <div class="reader-blog-wrapper">
+      <div class="book-page-wrapper">
         
-        <!-- Sticky Navigation & Controls Bar -->
-        <div class="reader-sticky-top">
-          <button class="btn-reader-back" onclick="App.switchTab('chapters')">
-            <i class="fa-solid fa-arrow-left"></i> Chapters
+        <!-- Book Page Running Head -->
+        <div class="page-running-head">
+          <button class="btn-folio-nav" onclick="App.switchTab('chapters')">
+            <i class="fa-solid fa-arrow-left-long"></i> Table of Contents
           </button>
-          <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-            <button class="btn-spotify-play" style="padding:0.45rem 1rem; font-size:0.82rem;" onclick="App.playChapterContinuous(${ch.number})">
-              <i class="fa-solid fa-play"></i> Play Chapter Audio
-            </button>
-            <button class="btn-spotify-secondary" style="padding:0.42rem 0.85rem; font-size:0.82rem;" onclick="App.scrollToBlogSection(${firstSec})">
-              <i class="fa-solid fa-book-open"></i> Read
-            </button>
+          <div class="running-head-center">
+            <span class="running-head-book">CONSTITUTION OF ZIMBABWE</span>
+            <span class="running-head-chap">CHAPTER ${roman}</span>
           </div>
-          <div style="display:flex; gap:0.35rem;">
-            <button class="btn-pill" onclick="App.toggleSerif()">
-              ${this.useSerif ? 'Sans' : 'Serif'}
-            </button>
-            <button class="btn-pill" onclick="App.changeFontSize(-1)">A-</button>
-            <button class="btn-pill" onclick="App.changeFontSize(1)">A+</button>
+          <div class="running-head-actions">
+            <button class="btn-folio-tool" onclick="App.changeFontSize(-1)" title="Smaller text">A-</button>
+            <button class="btn-folio-tool" onclick="App.changeFontSize(1)" title="Larger text">A+</button>
+            <button class="btn-folio-tool" onclick="App.toggleSerif()" title="Toggle Typeface">${this.useSerif ? 'Sans' : 'Serif'}</button>
           </div>
         </div>
 
-        <div style="margin-bottom: 2rem;">
-          <div style="font-size:0.8rem; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">
-            Chapter ${ch.number}
+        <!-- Chapter Title Opening -->
+        <div class="chapter-opening-header">
+          <div class="chapter-opening-label">CHAPTER ${roman}</div>
+          <h1 class="chapter-opening-title">${this.escapeHtml(ch.title)}</h1>
+          <div class="chapter-opening-rule">
+            <span class="ornament">❧</span>
           </div>
-          <h1 class="reader-chapter-title">${this.escapeHtml(ch.title)}</h1>
-          <div class="reader-chapter-meta">
-            <span class="reader-chapter-meta-item"><i class="fa-regular fa-clock"></i> ~${readingMins} min read</span>
-            <span class="reader-chapter-meta-item"><i class="fa-solid fa-scale-balanced"></i> Sections ${firstSec}–${lastSec}</span>
-            <span class="reader-chapter-meta-item" id="blogReadCounter">
-              <i class="fa-solid fa-check"></i> <strong id="blogReadCountText">${chReadCount}</strong>/${sectionCount} completed
-            </span>
+          <div class="chapter-opening-meta">
+            <span>Sections ${firstSec} to ${lastSec}</span>
+            <span class="meta-sep">•</span>
+            <span>~${readingMins} min read</span>
+            <span class="meta-sep">•</span>
+            <span id="blogReadCounter"><strong id="blogReadCountText">${chReadCount}</strong> of ${sectionCount} read</span>
+          </div>
+          <div class="chapter-opening-actions">
+            <button class="btn-book-primary" onclick="App.playChapterContinuous(${ch.number})">
+              <i class="fa-solid fa-headphones"></i> Listen to Chapter
+            </button>
+            <button class="btn-book-secondary" onclick="App.scrollToBlogSection(${firstSec})">
+              <i class="fa-solid fa-arrow-down"></i> Begin Reading
+            </button>
           </div>
         </div>
 
         <!-- Section Reading Blocks -->
-        <div class="reader-sections-container">
+        <div class="book-sections-body">
           ${ch.sections.map(sec => {
             const isRead = window.AuthManager ? window.AuthManager.isSectionRead(sec.number) : false;
             const isBookmarked = window.BookmarksManager ? window.BookmarksManager.isBookmarked(sec.number) : false;
             return `
-              <article class="reader-section-block" id="blog-sec-${sec.number}">
-                <div class="reader-sec-header">
-                  <span class="reader-sec-num">Section ${sec.number}</span>
-                  <div class="reader-sec-actions">
-                    <button class="btn-sec-action" onclick="App.playChapterContinuous(${ch.number}, ${sec.number})" title="Play from Section ${sec.number}">
-                      <i class="fa-solid fa-play"></i>
+              <article class="book-section-leaf" id="blog-sec-${sec.number}">
+                <div class="leaf-header">
+                  <span class="leaf-sec-symbol">§ ${sec.number}</span>
+                  <div class="leaf-actions">
+                    <button class="btn-leaf-action" onclick="App.playChapterContinuous(${ch.number}, ${sec.number})" title="Listen from § ${sec.number}">
+                      <i class="fa-solid fa-headphones"></i>
                     </button>
-                    <button class="btn-sec-action ${isRead ? 'is-read' : ''}" id="btnBlogRead-${sec.number}" onclick="App.toggleBlogSectionRead(${sec.number}, ${ch.number})" title="Mark as read">
+                    <button class="btn-leaf-action ${isRead ? 'is-read' : ''}" id="btnBlogRead-${sec.number}" onclick="App.toggleBlogSectionRead(${sec.number}, ${ch.number})" title="${isRead ? 'Marked as read' : 'Mark as read'}">
                       <i class="fa-solid fa-check"></i>
                     </button>
-                    <button class="btn-sec-action ${isBookmarked ? 'is-bookmarked' : ''}" id="btnBlogBookmark-${sec.number}" onclick="App.toggleBlogBookmark(${sec.number})" title="Bookmark section">
+                    <button class="btn-leaf-action ${isBookmarked ? 'is-bookmarked' : ''}" id="btnBlogBookmark-${sec.number}" onclick="App.toggleBlogBookmark(${sec.number})" title="Dog-ear (Bookmark)">
                       <i class="fa-${isBookmarked ? 'solid' : 'regular'} fa-bookmark"></i>
                     </button>
                   </div>
                 </div>
 
-                <h2 class="reader-sec-title">${this.escapeHtml(sec.title)}</h2>
+                <h2 class="leaf-sec-title">${this.escapeHtml(sec.title)}</h2>
 
                 ${sec.summary ? `
-                  <div class="reader-explainer-card">
-                    <div class="reader-explainer-tag"><i class="fa-solid fa-sparkles"></i> Plain English Context</div>
-                    <p>${this.escapeHtml(sec.summary)}</p>
-                  </div>
+                  <aside class="book-marginalia-note">
+                    <div class="marginalia-tag"><i class="fa-solid fa-feather-pointed"></i> Commentary & Plain-English Context</div>
+                    <p class="marginalia-text">${this.escapeHtml(sec.summary)}</p>
+                  </aside>
                 ` : ''}
 
-                <div class="reader-sec-body">
-                  ${sec.content.split('\n\n').filter(p => p.trim()).map((p, idx) => `
-                    <div class="reader-paragraph" onclick="App.speakBlogPassage(this, ${sec.number})">
+                <div class="leaf-sec-body">
+                  ${sec.content.split('\n\n').filter(p => p.trim()).map((p) => `
+                    <div class="reader-paragraph book-paragraph" onclick="App.speakBlogPassage(this, ${sec.number})">
                       ${this.formatParagraphText(p)}
-                      <span class="speak-hint">▶ Play passage</span>
+                      <span class="speak-hint"><i class="fa-solid fa-headphones" style="font-size:0.65rem;"></i> Read passage</span>
                     </div>
                   `).join('')}
                 </div>
@@ -659,24 +678,24 @@ const App = {
           }).join('')}
         </div>
 
-        <!-- Sticky Floating Bottom Navigation -->
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2.5rem; padding-top:1.5rem; border-top:1px solid var(--border-color);">
+        <!-- Book Page Turn Navigation -->
+        <div class="book-page-turn-footer">
           <div>
             ${ch.number > 1 ? `
-              <button class="btn-reader-back" onclick="App.openChapterBlog(${ch.number - 1})">
-                <i class="fa-solid fa-arrow-left"></i> Chapter ${ch.number - 1}
+              <button class="btn-page-turn" onclick="App.openChapterBlog(${ch.number - 1})">
+                <i class="fa-solid fa-arrow-left-long"></i> Chapter ${romanNumerals[ch.number - 2] || (ch.number - 1)}
               </button>
-            ` : '<span></span>'}
+            ` : '<span class="page-turn-placeholder">First Chapter</span>'}
           </div>
-          <button class="btn-reader-back" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">
-            <i class="fa-solid fa-arrow-up"></i> Top
+          <button class="btn-page-turn btn-page-top" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">
+            <i class="fa-solid fa-arrow-up"></i> Top of Page
           </button>
           <div>
             ${ch.number < 18 ? `
-              <button class="btn-reader-back" onclick="App.openChapterBlog(${ch.number + 1})">
-                Chapter ${ch.number + 1} <i class="fa-solid fa-arrow-right"></i>
+              <button class="btn-page-turn" onclick="App.openChapterBlog(${ch.number + 1})">
+                Chapter ${romanNumerals[ch.number] || (ch.number + 1)} <i class="fa-solid fa-arrow-right-long"></i>
               </button>
-            ` : '<span></span>'}
+            ` : '<span class="page-turn-placeholder">End of Volume</span>'}
           </div>
         </div>
 
@@ -795,71 +814,91 @@ const App = {
       : `<div class="reader-paragraph" id="para-0">${this.escapeHtml(section.content)}</div>`;
 
     const html = `
-      <div class="reader-container">
-        <div class="reader-toolbar">
-          <button class="reader-nav-btn" onclick="App.switchTab('chapters')">
-            <i class="fa-solid fa-arrow-left"></i> Chapters
+      <div class="book-page-wrapper">
+        <div class="page-running-head">
+          <button class="btn-folio-nav" onclick="App.openChapterBlog(${section.chapterNumber})">
+            <i class="fa-solid fa-arrow-left-long"></i> Chapter ${section.chapterNumber}
           </button>
-          <div class="reader-controls-right">
-            <button class="btn-mark-read ${isRead ? 'is-read' : ''}" id="btnMarkRead" onclick="App.toggleSectionRead()" title="Track your reading progress">
-              ${isRead ? '<i class="fa-solid fa-check"></i> Completed' : '<i class="fa-regular fa-circle-check"></i> Mark as Read'}
+          <div class="running-head-center">
+            <span class="running-head-book">CONSTITUTION OF ZIMBABWE</span>
+            <span class="running-head-chap">CHAPTER ${section.chapterNumber} • SECTION ${section.number}</span>
+          </div>
+          <div class="running-head-actions">
+            <button class="btn-folio-tool ${isRead ? 'is-read' : ''}" id="btnMarkRead" onclick="App.toggleSectionRead()" title="Reading progress">
+              ${isRead ? '<i class="fa-solid fa-check"></i> Read' : '<i class="fa-regular fa-circle-check"></i> Mark Read'}
             </button>
-            <button class="btn-pill" onclick="App.toggleSerif()" title="Toggle Serif / Sans-serif">
-              ${this.useSerif ? 'Sans' : 'Serif'}
-            </button>
-            <button class="btn-pill" onclick="App.changeFontSize(-1)" title="Smaller text">A-</button>
-            <button class="btn-pill" onclick="App.changeFontSize(1)" title="Larger text">A+</button>
-            <button class="btn-pill ${isBookmarked ? 'active' : ''}" id="btnBookmark" onclick="App.toggleBookmarkCurrent()">
-              ${isBookmarked ? '<i class="fa-solid fa-bookmark"></i> Saved' : '<i class="fa-regular fa-bookmark"></i> Bookmark'}
+            <button class="btn-folio-tool" onclick="App.changeFontSize(-1)">A-</button>
+            <button class="btn-folio-tool" onclick="App.changeFontSize(1)">A+</button>
+            <button class="btn-folio-tool ${isBookmarked ? 'active' : ''}" id="btnBookmark" onclick="App.toggleBookmarkCurrent()" title="Dog-ear">
+              ${isBookmarked ? '<i class="fa-solid fa-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>'}
             </button>
           </div>
         </div>
 
-        <div class="reader-meta-tag">Chapter ${section.chapterNumber}: ${this.escapeHtml(section.chapterTitle)}</div>
-        <h1 class="reader-heading">Section ${section.number}. ${this.escapeHtml(section.title)}</h1>
-
-        <!-- Conversational Explainer Card -->
-        <div class="conversational-box">
-          <div class="conv-header">
-            <span class="conv-badge"><i class="fa-solid fa-wand-magic-sparkles"></i> Plain English Summary</span>
-            <button class="btn-listen-explainer" onclick="App.quickPlaySection(${section.number})">
-              <i class="fa-solid fa-play"></i> Listen with Audio
+        <div class="chapter-opening-header" style="margin-bottom:2rem; padding-bottom:1.5rem;">
+          <div class="chapter-opening-label">CHAPTER ${section.chapterNumber}: ${this.escapeHtml(section.chapterTitle)}</div>
+          <h1 class="chapter-opening-title" style="font-size:2rem;">§ ${section.number}. ${this.escapeHtml(section.title)}</h1>
+          <div class="chapter-opening-actions" style="margin-top:1rem;">
+            <button class="btn-book-primary" onclick="App.quickPlaySection(${section.number})">
+              <i class="fa-solid fa-headphones"></i> Listen to Clause
             </button>
           </div>
-          <p class="conv-text">${this.escapeHtml(section.summary)}</p>
         </div>
+
+        ${section.summary ? `
+          <aside class="book-marginalia-note" style="max-width: 680px; margin: 0 auto 2rem;">
+            <div class="marginalia-tag"><i class="fa-solid fa-feather-pointed"></i> Commentary & Plain-English Context</div>
+            <p class="marginalia-text">${this.escapeHtml(section.summary)}</p>
+          </aside>
+        ` : ''}
 
         <!-- Section Legal Text -->
-        <div class="reader-body" id="readerBody">
-          ${formattedParagraphs}
+        <div class="book-sections-body" style="max-width: 680px; margin: 0 auto;">
+          <div class="leaf-sec-body" id="readerBody">
+            ${paragraphs.length > 0 
+              ? paragraphs.map((p, idx) => `
+                  <div class="reader-paragraph book-paragraph" id="para-${idx}" onclick="App.speakPassageFromElement(this, ${idx})">
+                    ${this.formatParagraphText(p)}
+                    <span class="speak-hint"><i class="fa-solid fa-headphones" style="font-size:0.65rem;"></i> Read passage</span>
+                  </div>
+                `).join('')
+              : `<div class="reader-paragraph book-paragraph" id="para-0">${this.escapeHtml(section.content)}</div>`}
+          </div>
         </div>
 
-        <!-- User Civic Study Notes -->
-        <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-color);">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-            <span style="font-size:0.8rem; font-weight:700; color:var(--gold);"><i class="fa-solid fa-pen-to-square"></i> Personal Notes for Section ${section.number}</span>
-            <span id="noteSaveStatus" style="font-size:0.75rem; color:var(--text-dim);"></span>
+        <!-- Reader's Civic Study Notes -->
+        <div style="max-width: 680px; margin: 2.5rem auto 0; padding: 1.25rem; background: var(--bg-surface); border-radius: 4px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
+            <span style="font-family:var(--font-serif); font-size:0.92rem; font-weight:700; color:var(--gold);"><i class="fa-solid fa-pen-to-square"></i> Reader's Notes for § ${section.number}</span>
+            <span id="noteSaveStatus" style="font-size:0.75rem; color:var(--text-dim); font-style:italic;"></span>
           </div>
           <textarea id="sectionNoteInput" 
-            style="width:100%; height:70px; background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-main); border-radius:6px; padding:0.5rem; font-size:0.85rem; outline:none; resize:vertical;" 
-            placeholder="Add legal analysis, court notes, or study thoughts here...">${this.escapeHtml(existingNote)}</textarea>
-          <div style="margin-top:0.4rem; text-align:right;">
-            <button class="btn-pill" onclick="App.saveCurrentNote()">Save Note</button>
+            style="width:100%; height:75px; background:var(--bg-main); border:1px solid var(--border-color); color:var(--text-main); border-radius:4px; padding:0.65rem; font-family:var(--font-serif); font-size:0.92rem; outline:none; resize:vertical; line-height:1.6;" 
+            placeholder="Add legal analysis, margin reflections, or court citations...">${this.escapeHtml(existingNote)}</textarea>
+          <div style="margin-top:0.5rem; text-align:right;">
+            <button class="btn-folio-tool" style="font-size:0.82rem; padding:0.4rem 0.9rem;" onclick="App.saveCurrentNote()">Save Note</button>
           </div>
         </div>
 
-        <!-- Prev / Next Navigation -->
-        <div class="reader-bottom-nav">
-          ${section.number > 1 ? `
-            <button class="btn-nav-sec" onclick="App.openSection(${section.number - 1})">
-              <i class="fa-solid fa-chevron-left"></i> Section ${section.number - 1}
-            </button>
-          ` : '<div></div>'}
-          ${section.number < 345 ? `
-            <button class="btn-nav-sec" onclick="App.openSection(${section.number + 1})">
-              Section ${section.number + 1} <i class="fa-solid fa-chevron-right"></i>
-            </button>
-          ` : '<div></div>'}
+        <!-- Prev / Next Clause Navigation -->
+        <div class="book-page-turn-footer">
+          <div>
+            ${section.number > 1 ? `
+              <button class="btn-page-turn" onclick="App.openSection(${section.number - 1})">
+                <i class="fa-solid fa-arrow-left-long"></i> § ${section.number - 1}
+              </button>
+            ` : '<span></span>'}
+          </div>
+          <button class="btn-page-turn btn-page-top" onclick="App.openChapterBlog(${section.chapterNumber})">
+            <i class="fa-solid fa-book-open"></i> Full Chapter ${section.chapterNumber}
+          </button>
+          <div>
+            ${section.number < 345 ? `
+              <button class="btn-page-turn" onclick="App.openSection(${section.number + 1})">
+                § ${section.number + 1} <i class="fa-solid fa-arrow-right-long"></i>
+              </button>
+            ` : '<span></span>'}
+          </div>
         </div>
       </div>
     `;
@@ -874,46 +913,55 @@ const App = {
   openPreamble() {
     window.location.hash = '#preamble';
     const html = `
-      <div class="reader-container">
-        <div class="reader-toolbar">
-          <button class="reader-nav-btn" onclick="App.switchTab('chapters')">
-            <i class="fa-solid fa-arrow-left"></i> Chapters
+      <div class="book-page-wrapper">
+        <div class="page-running-head">
+          <button class="btn-folio-nav" onclick="App.switchTab('chapters')">
+            <i class="fa-solid fa-arrow-left-long"></i> Table of Contents
           </button>
-          <div class="reader-controls-right">
-            <button class="btn-pill" onclick="App.toggleSerif()">
-              ${this.useSerif ? 'Sans' : 'Serif'}
-            </button>
-            <button class="btn-pill" onclick="App.changeFontSize(-1)">A-</button>
-            <button class="btn-pill" onclick="App.changeFontSize(1)">A+</button>
+          <div class="running-head-center">
+            <span class="running-head-book">CONSTITUTION OF ZIMBABWE</span>
+            <span class="running-head-chap">THE PREAMBLE</span>
+          </div>
+          <div class="running-head-actions">
+            <button class="btn-folio-tool" onclick="App.changeFontSize(-1)">A-</button>
+            <button class="btn-folio-tool" onclick="App.changeFontSize(1)">A+</button>
+            <button class="btn-folio-tool" onclick="App.toggleSerif()">${this.useSerif ? 'Sans' : 'Serif'}</button>
           </div>
         </div>
 
-        <div class="reader-meta-tag">Constitution of Zimbabwe</div>
-        <h1 class="reader-heading">Preamble</h1>
-
-        <div class="conversational-box">
-          <div class="conv-header">
-            <span class="conv-badge"><i class="fa-solid fa-circle-info"></i> Overview</span>
-            <button class="btn-listen-explainer" onclick="App.quickPlayPreamble()">
-              <i class="fa-solid fa-play"></i> Listen to Preamble
+        <div class="chapter-opening-header">
+          <div class="chapter-opening-label">FOUNDING CHARTER</div>
+          <h1 class="chapter-opening-title">Preamble</h1>
+          <div class="chapter-opening-rule">
+            <span class="ornament">❧</span>
+          </div>
+          <div class="chapter-opening-actions">
+            <button class="btn-book-primary" onclick="App.quickPlayPreamble()">
+              <i class="fa-solid fa-headphones"></i> Listen to Preamble
             </button>
           </div>
-          <p class="conv-text">The Preamble is the philosophical cornerstone of Zimbabwe's 2013 Constitution, declaring popular sovereignty, historical resistance to colonial domination, equality, and national reconciliation.</p>
         </div>
 
-        <div class="reader-body">
-          ${this.data.preamble.split('\n\n').map((para, idx) => `
-            <div class="reader-paragraph" id="para-${idx}" onclick="App.speakPassageFromElement(this, ${idx})">
-              ${this.escapeHtml(para)}
-              <span class="speak-hint"><i class="fa-solid fa-play" style="font-size:0.65rem;"></i> Play passage</span>
-            </div>
-          `).join('')}
+        <aside class="book-marginalia-note" style="max-width: 680px; margin: 0 auto 2.5rem;">
+          <div class="marginalia-tag"><i class="fa-solid fa-feather-pointed"></i> Proclamation Note</div>
+          <p class="marginalia-text">The Preamble is the philosophical cornerstone of Zimbabwe's 2013 Constitution, declaring popular sovereignty, historical resistance to colonial domination, equality, and national reconciliation.</p>
+        </aside>
+
+        <div class="book-sections-body" style="max-width: 680px; margin: 0 auto;">
+          <div class="leaf-sec-body">
+            ${this.data.preamble.split('\n\n').map((para, idx) => `
+              <div class="reader-paragraph book-paragraph" id="para-${idx}" onclick="App.speakPassageFromElement(this, ${idx})">
+                ${this.escapeHtml(para)}
+                <span class="speak-hint"><i class="fa-solid fa-headphones" style="font-size:0.65rem;"></i> Read passage</span>
+              </div>
+            `).join('')}
+          </div>
         </div>
 
-        <div class="reader-bottom-nav">
+        <div class="book-page-turn-footer">
           <div></div>
-          <button class="btn-nav-sec" onclick="App.openSection(1)">
-            Chapter 1: Section 1 <i class="fa-solid fa-chevron-right"></i>
+          <button class="btn-page-turn" onclick="App.openChapterBlog(1)">
+            Chapter I: Founding Provisions <i class="fa-solid fa-arrow-right-long"></i>
           </button>
         </div>
       </div>
@@ -1088,20 +1136,20 @@ const App = {
 
   syncBlogNowPlaying(section, chNumber) {
     // Remove previous now-playing highlights in reader
-    document.querySelectorAll('.reader-section-block').forEach(el => {
+    document.querySelectorAll('.book-section-leaf, .reader-section-block').forEach(el => {
       el.classList.remove('is-now-playing');
-      const badge = el.querySelector('.now-playing-pill');
+      const badge = el.querySelector('.now-playing-pill, .now-narrating-ribbon');
       if (badge) badge.remove();
     });
 
     const secEl = document.getElementById(`blog-sec-${section.number}`);
     if (secEl) {
       secEl.classList.add('is-now-playing');
-      const headerNum = secEl.querySelector('.reader-sec-num');
-      if (headerNum && !secEl.querySelector('.now-playing-pill')) {
+      const headerNum = secEl.querySelector('.leaf-sec-symbol, .reader-sec-num');
+      if (headerNum && !secEl.querySelector('.now-narrating-ribbon')) {
         const badge = document.createElement('span');
-        badge.className = 'now-playing-pill';
-        badge.innerHTML = `<i class="fa-solid fa-volume-high fa-beat-fade"></i> NOW PLAYING`;
+        badge.className = 'now-narrating-ribbon';
+        badge.innerHTML = `<i class="fa-solid fa-volume-high fa-beat-fade"></i> Reading Now`;
         headerNum.appendChild(badge);
       }
 

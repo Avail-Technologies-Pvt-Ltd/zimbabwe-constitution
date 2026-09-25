@@ -30,107 +30,106 @@
 
   <div class="app-container">
     
-    <!-- Top Header -->
-    <header class="app-header">
+    <!-- Literary Folio Header -->
+    <header class="app-header book-folio-header">
       <div class="header-content">
         <a class="brand" onclick="App.switchTab('chapters')">
           <div class="brand-badge-icon">
             <i class="fa-solid fa-scale-balanced"></i>
           </div>
           <div class="brand-titles">
-            <span class="brand-title">
-              Zim Constitution
-              <span class="brand-badge">2013</span>
+            <span class="brand-title book-font">
+              CONSTITUTION OF ZIMBABWE
             </span>
-            <span class="brand-sub">Supreme Law of Zimbabwe</span>
+            <span class="brand-sub">Official 2013 Text & Commentary</span>
           </div>
         </a>
 
-        <!-- Desktop Navigation Bar -->
+        <!-- Desktop Literary Folio Navigation -->
         <nav class="header-nav-desktop">
           <button class="desktop-nav-link active" data-tab="chapters" onclick="App.switchTab('chapters')">
-            <i class="fa-solid fa-book"></i> Chapters
+            <i class="fa-solid fa-book-open"></i> Contents
           </button>
           <button class="desktop-nav-link" data-tab="search" onclick="App.switchTab('search')">
             <i class="fa-solid fa-magnifying-glass"></i> Search
           </button>
           <button class="desktop-nav-link" data-tab="audio" onclick="App.switchTab('audio')">
-            <i class="fa-solid fa-headphones"></i> Audio Player
+            <i class="fa-solid fa-headphones"></i> Narration
           </button>
           <button class="desktop-nav-link" data-tab="bookmarks" onclick="App.switchTab('bookmarks')">
-            <i class="fa-solid fa-bookmark"></i> Bookmarks
+            <i class="fa-solid fa-bookmark"></i> Dog-ears
           </button>
           <button class="desktop-nav-link" data-tab="overview" onclick="App.switchTab('overview')">
-            <i class="fa-solid fa-circle-info"></i> Overview
+            <i class="fa-solid fa-circle-info"></i> About
           </button>
         </nav>
 
         <!-- Header Actions -->
         <div class="header-actions">
-          <!-- User Profile / Login by Email Button -->
+          <!-- Reader Profile Button -->
           <button class="user-profile-btn" id="userProfileBtn" onclick="App.openAuthModal('login')" title="Sign in with email to save reading progress">
-            <i class="fa-regular fa-circle-user"></i> <span id="userProfileLabel">Sign In</span>
+            <i class="fa-regular fa-circle-user"></i> <span id="userProfileLabel">Reader</span>
           </button>
-          <button class="icon-btn" onclick="App.switchTab('search')" title="Search Constitution">
+          <button class="icon-btn" onclick="App.switchTab('search')" title="Search Text">
             <i class="fa-solid fa-magnifying-glass"></i>
           </button>
-          <button class="icon-btn" onclick="App.cycleTheme()" title="Switch Theme (Light, Dark, Sepia)">
+          <button class="icon-btn" onclick="App.cycleTheme()" title="Paper Color (Parchment, Study, Sepia)">
             <i class="fa-solid fa-circle-half-stroke"></i>
           </button>
         </div>
       </div>
     </header>
 
-
-
     <!-- Main Content Panes -->
     <main class="main-view">
 
-      <!-- 1. CHAPTERS ACCORDION PANE -->
+      <!-- 1. TABLE OF CONTENTS PANE -->
       <section id="tab-chapters" class="tab-pane active">
 
-        <!-- Minimal Spotify / TTW Album Header -->
-        <div class="album-hero">
-          <div class="album-cover">
-            <i class="fa-solid fa-scale-balanced album-cover-icon"></i>
-            <span class="album-cover-label">2013</span>
+        <!-- Authentic Book Frontispiece & Title Page -->
+        <div class="book-frontispiece">
+          <div class="frontispiece-crest">
+            <i class="fa-solid fa-scale-balanced"></i>
           </div>
-          <div class="album-details">
-            <div class="album-eyebrow">
-              <span class="album-type">AUDIOBOOK & BIBLE-STYLE READING</span>
-              <span class="album-dot">•</span>
-              <span class="album-badge">18 CHAPTERS</span>
-            </div>
-            <h1 class="album-title">The Constitution of Zimbabwe</h1>
-            <p class="album-description">
-              Listen seamlessly chapter-by-chapter like a podcast album, or read along with synchronized audio guidance.
-            </p>
-            <div class="album-actions">
-              <button class="btn-spotify-play" onclick="App.playChapterContinuous(1)">
-                <i class="fa-solid fa-play"></i> Play Chapter 1
-              </button>
-              <button class="btn-spotify-secondary" onclick="App.openChapterBlog(1)">
-                <i class="fa-solid fa-book-open"></i> Read Chapter 1
-              </button>
-              <button class="btn-spotify-ghost" onclick="App.openPreamble()">
-                <i class="fa-solid fa-scroll"></i> Preamble
-              </button>
-            </div>
+          <div class="frontispiece-eyebrow">THE SUPREME LAW OF THE REPUBLIC OF ZIMBABWE</div>
+          <h1 class="frontispiece-title">Constitution of Zimbabwe</h1>
+          <div class="frontispiece-meta">
+            <span>Enacted & Promulgated 2013</span>
+            <span class="meta-dot">❧</span>
+            <span>Amendment (No. 20) Act</span>
+            <span class="meta-dot">❧</span>
+            <span>Annotated Reader’s Edition</span>
+          </div>
+          <div class="frontispiece-rule"></div>
+          <blockquote class="frontispiece-epigraph">
+            “We the people of Zimbabwe, united in our diversity by our common desire for freedom, justice and equality, and our heroic resistance to colonialism, racism and all forms of domination...”
+            <cite>— From the Preamble</cite>
+          </blockquote>
+          <div class="frontispiece-actions">
+            <button class="btn-book-primary" onclick="App.openPreamble()">
+              <i class="fa-solid fa-scroll"></i> Read Preamble
+            </button>
+            <button class="btn-book-secondary" onclick="App.openChapterBlog(1)">
+              <i class="fa-solid fa-book-open"></i> Begin Chapter 1
+            </button>
+            <button class="btn-book-ghost" onclick="App.playChapterContinuous(1)">
+              <i class="fa-solid fa-headphones"></i> Listen to Narration
+            </button>
           </div>
         </div>
 
-        <!-- Tracklist Section Header -->
-        <div class="tracklist-header-row">
-          <div>
-            <h2 class="tracklist-title">Chapters Tracklist</h2>
-            <p class="tracklist-sub">18 Chapters • 345 Sections • Continuous Audio</p>
+        <!-- Table of Contents Section -->
+        <div class="toc-header-section">
+          <div class="toc-titles">
+            <h2 class="toc-heading">Table of Contents</h2>
+            <p class="toc-subheading">Eighteen Chapters • Three Hundred & Forty-Five Sections</p>
           </div>
-          <div class="tracklist-header-meta" id="overallProgressText">
+          <div class="toc-progress-box" id="overallProgressText">
             <!-- Filled dynamically -->
           </div>
         </div>
 
-        <div id="chaptersContainer" class="album-tracklist-container">
+        <div id="chaptersContainer" class="book-toc-container">
           <!-- Populated dynamically by App.renderChaptersList() -->
         </div>
       </section>
@@ -327,46 +326,46 @@
 
     </main>
 
-    <!-- Floating Persistent Mini Audio Bar (Spotify-Style Track Bar) -->
-    <div class="mini-audio-bar" id="miniAudioBar">
-      <div class="mini-progress-track">
-        <div class="mini-progress-fill" id="miniProgressFill"></div>
+    <!-- Book Narration Ribbon (Reading Companion) -->
+    <div class="book-narrator-ribbon" id="miniAudioBar">
+      <div class="narrator-progress-line">
+        <div class="narrator-progress-fill" id="miniProgressFill"></div>
       </div>
-      <div class="mini-bar-content">
-        <div class="mini-track-info" onclick="App.goToNowPlayingSection()" title="Click to view now-playing section">
-          <div class="mini-playing-icon" id="miniAlbumIcon">
-            <i class="fa-solid fa-scale-balanced"></i>
+      <div class="narrator-bar-body">
+        <div class="narrator-info" onclick="App.goToNowPlayingSection()" title="Turn to currently narrated page">
+          <div class="narrator-glyph" id="miniAlbumIcon">
+            <i class="fa-solid fa-book-open-reader"></i>
           </div>
-          <div class="mini-titles">
-            <span class="mini-sec-title" id="miniTrackTitle">Zimbabwean Constitution Audio</span>
-            <span class="mini-sec-sub" id="miniTrackSub">Tap to read along</span>
+          <div class="narrator-titles">
+            <span class="narrator-reading-label" id="miniTrackTitle">Constitutional Audio Companion</span>
+            <span class="narrator-reading-clause" id="miniTrackSub">Tap to open text on current page</span>
           </div>
         </div>
-        <div class="mini-controls">
-          <button class="player-btn-nav" onclick="window.TTSEngine.previousTrack()" title="Previous Section">
+        <div class="narrator-controls">
+          <button class="narrator-btn" onclick="window.TTSEngine.previousTrack()" title="Previous Section">
             <i class="fa-solid fa-backward-step"></i>
           </button>
-          <button class="player-btn-main" id="miniBtnPlay" onclick="App.toggleAudioPlay()" title="Play / Pause">
+          <button class="narrator-btn narrator-btn-main" id="miniBtnPlay" onclick="App.toggleAudioPlay()" title="Play / Pause Narration">
             <i class="fa-solid fa-play"></i>
           </button>
-          <button class="player-btn-nav" onclick="window.TTSEngine.nextTrack()" title="Next Section">
+          <button class="narrator-btn" onclick="window.TTSEngine.nextTrack()" title="Next Section">
             <i class="fa-solid fa-forward-step"></i>
           </button>
-          <button class="player-pill-btn mini-autoplay-toggle" id="miniAutoplayToggle" onclick="App.toggleContinuousPlay()" title="Toggle Continuous Album Autoplay">
-            <i class="fa-solid fa-repeat"></i> <span>Autoplay</span>
+          <button class="narrator-pill-btn mini-autoplay-toggle" id="miniAutoplayToggle" onclick="App.toggleContinuousPlay()" title="Toggle Continuous Reading">
+            <i class="fa-solid fa-repeat"></i> <span>Continuous</span>
           </button>
-          <button class="player-pill-btn mini-read-along-btn" onclick="App.goToNowPlayingSection()" title="Read along with current section">
-            <i class="fa-solid fa-book-open"></i> <span>Read</span>
+          <button class="narrator-pill-btn" onclick="App.goToNowPlayingSection()" title="Turn to text page">
+            <i class="fa-solid fa-book-open"></i> <span>Page</span>
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Mobile Bottom Navigation Bar -->
-    <nav class="bottom-nav">
+    <!-- Mobile Literary Bottom Navigation Bar -->
+    <nav class="bottom-nav book-bottom-nav">
       <button class="nav-item active" data-tab="chapters" onclick="App.switchTab('chapters')">
-        <i class="nav-icon fa-solid fa-book"></i>
-        <span>Chapters</span>
+        <i class="nav-icon fa-solid fa-book-open"></i>
+        <span>Contents</span>
       </button>
       <button class="nav-item" data-tab="search" onclick="App.switchTab('search')">
         <i class="nav-icon fa-solid fa-magnifying-glass"></i>
@@ -374,11 +373,11 @@
       </button>
       <button class="nav-item" data-tab="audio" onclick="App.switchTab('audio')">
         <i class="nav-icon fa-solid fa-headphones"></i>
-        <span>Audio</span>
+        <span>Narration</span>
       </button>
       <button class="nav-item" data-tab="bookmarks" onclick="App.switchTab('bookmarks')">
         <i class="nav-icon fa-solid fa-bookmark"></i>
-        <span>Bookmarks</span>
+        <span>Dog-ears</span>
       </button>
       <button class="nav-item" data-tab="overview" onclick="App.switchTab('overview')">
         <i class="nav-icon fa-solid fa-circle-info"></i>

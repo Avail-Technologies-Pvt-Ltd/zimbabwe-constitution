@@ -297,27 +297,14 @@ def api_elevenlabs_tts(request):
     if not text:
         return JsonResponse({'error': 'No text provided for speech synthesis.'}, status=400)
 
-    # 1. Check local audio cache by hash to avoid burning API credits
-    text_hash = hashlib.sha256(f"{voice_id}:{text}".encode('utf-8')).hexdigest()
-    cache_dir = settings.MEDIA_ROOT / 'audio_cache'
-    os.makedirs(cache_dir, exist_ok=True)
-    cache_file = cache_dir / f"{text_hash}.mp3"
-
-    if cache_file.exists():
-        with open(cache_file, 'rb') as f:
-            audio_bytes = f.read()
-        response = HttpResponse(audio_bytes, content_type='audio/mpeg')
-        response['X-Audio-Cache'] = 'HIT'
-        return response
-
-    # 2. Check if API key is configured
+    # Check if API key is configured
     api_key = settings.ELEVENLABS_API_KEY
     if not api_key:
         return JsonResponse({
             'error': 'ElevenLabs API key is not configured on the server yet. Please add ELEVENLABS_API_KEY to .env or settings.'
         }, status=503)
 
-    # 3. Call ElevenLabs API
+    # Call ElevenLabs API - in-memory stream directly to client, no disk storage
     api_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     headers = {
         'xi-api-key': api_key,
@@ -336,19 +323,8 @@ def api_elevenlabs_tts(request):
     try:
         eleven_res = requests.post(api_url, json=payload, headers=headers, timeout=25)
         if eleven_res.status_code == 200:
-            audio_bytes = eleven_res.content
-            # Save to disk cache
-            with open(cache_file, 'wb') as f:
-                f.write(audio_bytes)
-            
-            CachedAudio.objects.get_or_create(
-                text_hash=text_hash,
-                defaults={'voice_id': voice_id}
-            )
-
-            response = HttpResponse(audio_bytes, content_type='audio/mpeg')
-            response['X-Audio-Cache'] = 'MISS'
-            return response
+            # Return in-memory audio response without storing to disk
+            return HttpResponse(eleven_res.content, content_type='audio/mpeg')
         else:
             return JsonResponse({
                 'error': f'ElevenLabs API error: {eleven_res.text}'

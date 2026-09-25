@@ -76,23 +76,42 @@
       <!-- 1. CHAPTERS ACCORDION PANE -->
       <section id="tab-chapters" class="tab-pane active">
 
-        <!-- Welcoming Hero Banner -->
+        <!-- Welcoming Hero & Continuous Spotify-Style Audio Banner -->
         <div class="welcome-hero">
-          <div class="welcome-badge-pill">🇿🇼 Mauya • Samukele • Welcome</div>
-          <h1 class="welcome-title">The Constitution of Zimbabwe</h1>
-          <p class="welcome-quote">
-            "United in our diversity by our common desire for freedom, justice and equality... we hereby make this Constitution as the supreme law of Zimbabwe."
-          </p>
+          <div class="album-hero-layout">
+            <div class="album-cover-badge">
+              <div class="album-art-inner">
+                <span class="album-art-icon">🇿🇼</span>
+                <span class="album-art-tag">CONSTITUTION</span>
+              </div>
+            </div>
+            <div class="album-meta-info">
+              <div class="welcome-badge-pill">🎧 Audio Album & Podcast Edition</div>
+              <h1 class="welcome-title">The Constitution of Zimbabwe</h1>
+              <p class="welcome-quote">
+                Listen to Zimbabwe's supreme law like a Spotify podcast or Through the Word (TTW) scripture. Start Chapter 1 and enjoy smooth, continuous narration section-by-section, or read along with synchronized highlighting.
+              </p>
+              <div class="album-hero-cta-row">
+                <button class="btn-play-album-master" onclick="App.playChapterContinuous(1)" title="Play from Chapter 1 continuously">
+                  <span class="play-triangle">▶</span> Play Chapter 1 (Continuous)
+                </button>
+                <button class="btn-album-secondary" onclick="App.openChapterBlog(1)" title="Open Chapter 1 Editorial Blog">
+                  📖 Read Chapter 1 Blog
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div class="welcome-actions-grid">
-            <div class="welcome-action-card" onclick="App.openSection(44)">
+            <div class="welcome-action-card" onclick="App.playChapterContinuous(4)">
               <span class="welcome-action-icon">🛡️</span>
-              <span class="welcome-action-label">Bill of Rights</span>
-              <span class="welcome-action-sub">Chapter 4 (Sec 44-87)</span>
+              <span class="welcome-action-label">Play Bill of Rights</span>
+              <span class="welcome-action-sub">Chapter 4 (Continuous)</span>
             </div>
             <div class="welcome-action-card" onclick="App.switchTab('audio')">
-              <span class="welcome-action-icon">🎧</span>
+              <span class="welcome-action-icon">🎙️</span>
               <span class="welcome-action-label">Audio Lounge</span>
-              <span class="welcome-action-sub">Conversational Narrator</span>
+              <span class="welcome-action-sub">HD Voices & Controls</span>
             </div>
             <div class="welcome-action-card" onclick="App.switchTab('search')">
               <span class="welcome-action-icon">🔍</span>
@@ -304,20 +323,26 @@
 
     </main>
 
-    <!-- Floating Persistent Mini Audio Bar -->
+    <!-- Floating Persistent Mini Audio Bar (Spotify-Style Track Bar) -->
     <div class="mini-audio-bar" id="miniAudioBar">
       <div class="mini-bar-content">
-        <div class="mini-track-info" onclick="App.switchTab('audio')">
-          <div class="mini-playing-icon">🎧</div>
+        <div class="mini-track-info" onclick="App.goToNowPlayingSection()" title="Click to view now-playing section">
+          <div class="mini-playing-icon" id="miniAlbumIcon">🎵</div>
           <div class="mini-titles">
             <span class="mini-sec-title" id="miniTrackTitle">Zimbabwean Constitution Audio</span>
-            <span class="mini-sec-sub" id="miniTrackSub">Tap to open audio lounge</span>
+            <span class="mini-sec-sub" id="miniTrackSub">Tap to read along</span>
           </div>
         </div>
         <div class="mini-controls">
-          <button class="btn-ctrl" style="width:36px; height:36px; font-size:0.9rem;" onclick="window.TTSEngine.previous()">⏮</button>
-          <button class="btn-ctrl btn-play-primary" style="width:40px; height:40px; font-size:1rem;" id="miniBtnPlay" onclick="App.toggleAudioPlay()">▶</button>
-          <button class="btn-ctrl" style="width:36px; height:36px; font-size:0.9rem;" onclick="window.TTSEngine.next()">⏭</button>
+          <button class="btn-ctrl" style="width:36px; height:36px; font-size:0.9rem;" onclick="window.TTSEngine.previousTrack()" title="Previous Section">⏮</button>
+          <button class="btn-ctrl btn-play-primary" style="width:42px; height:42px; font-size:1.05rem;" id="miniBtnPlay" onclick="App.toggleAudioPlay()" title="Play / Pause">▶</button>
+          <button class="btn-ctrl" style="width:36px; height:36px; font-size:0.9rem;" onclick="window.TTSEngine.nextTrack()" title="Next Section">⏭</button>
+          <button class="btn-pill mini-autoplay-toggle" id="miniAutoplayToggle" onclick="App.toggleContinuousPlay()" title="Toggle Continuous Album Autoplay">
+            🔁 Autoplay ON
+          </button>
+          <button class="btn-pill mini-read-along-btn" onclick="App.goToNowPlayingSection()" title="Read along with current section">
+            📖 Read Along
+          </button>
         </div>
       </div>
     </div>

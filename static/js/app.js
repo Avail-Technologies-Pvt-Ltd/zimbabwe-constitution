@@ -474,9 +474,12 @@ const App = {
               <h3 class="ch-title">${this.escapeHtml(ch.title)}</h3>
               <span class="ch-meta">${rangeText}</span>
             </div>
-            <div style="display:flex; align-items:center; gap:0.5rem;" onclick="event.stopPropagation()">
-              <button class="btn-blog-read" style="padding:0.4rem 0.75rem; font-size:0.75rem;" onclick="App.openChapterBlog(${ch.number})" title="Open Chapter in Editorial Blog View">
-                📖 Read Blog →
+            <div style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap; justify-content:flex-end;" onclick="event.stopPropagation()">
+              <button class="btn-chapter-play" onclick="App.playChapterContinuous(${ch.number})" title="Play Chapter ${ch.number} continuously like a Spotify album">
+                ▶ Play Chapter
+              </button>
+              <button class="btn-blog-read" style="padding:0.38rem 0.75rem; font-size:0.75rem;" onclick="App.openChapterBlog(${ch.number})" title="Open Chapter in Editorial Blog View">
+                📖 Read Blog
               </button>
               <button class="icon-btn" style="width:32px; height:32px; font-size:0.75rem;" onclick="App.toggleChapter(${ch.number})" title="View Sections List">
                 ▼
@@ -496,8 +499,8 @@ const App = {
                     </span>
                   </div>
                   <div class="sec-actions">
-                    <button class="btn-mini-listen" onclick="event.stopPropagation(); App.quickPlaySection(${sec.number})" title="Play conversational audio">
-                      🎧 Listen
+                    <button class="btn-mini-listen" onclick="event.stopPropagation(); App.playChapterContinuous(${ch.number}, ${sec.number})" title="Play continuously from Section ${sec.number}">
+                      ▶ Play
                     </button>
                   </div>
                 </div>
@@ -585,12 +588,12 @@ const App = {
           </div>
 
           <div class="chapter-blog-toolbar">
-            <div class="chapter-blog-actions-left">
-              <button class="btn-blog-read" onclick="App.scrollToBlogSection(${firstSec})">
-                📖 Start Reading Chapter
+            <div class="chapter-blog-actions-left" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+              <button class="btn-play-album-master" style="padding:0.45rem 1rem; font-size:0.82rem;" onclick="App.playChapterContinuous(${ch.number})" title="Play Chapter ${ch.number} continuously like a Spotify album">
+                ▶ Play Chapter (Continuous)
               </button>
-              <button class="icon-btn" style="padding: 0.5rem 0.85rem; border-radius:8px; font-size:0.85rem;" onclick="App.quickPlaySection(${firstSec})" title="Listen to Chapter 1 Audio">
-                🎧 Listen Audio
+              <button class="btn-blog-read" onclick="App.scrollToBlogSection(${firstSec})">
+                📖 Read Chapter
               </button>
             </div>
             <div style="display:flex; gap:0.4rem;">
@@ -635,9 +638,9 @@ const App = {
                       ${isRead ? '✓ Read' : 'Mark as Read'}
                     </button>
                     <button class="icon-btn" 
-                            onclick="App.quickPlaySection(${sec.number})" 
-                            title="Listen to conversational audio">
-                      🎧
+                            onclick="App.playChapterContinuous(${ch.number}, ${sec.number})" 
+                            title="Play continuously from Section ${sec.number}">
+                      ▶
                     </button>
                     <button class="btn-pill ${isBookmarked ? 'active' : ''}" 
                             id="btnBlogBookmark-${sec.number}" 
@@ -1056,6 +1059,10 @@ const App = {
       this.updateAudioUI(state);
     };
 
+    window.TTSEngine.onTrackChange = (section, chNumber, trackIndex, totalTracks) => {
+      this.handleTrackChange(section, chNumber, trackIndex, totalTracks);
+    };
+
     window.TTSEngine.onParagraphChange = (item, index) => {
       document.querySelectorAll('.reader-paragraph').forEach(el => {
         el.classList.remove('speaking-active');
@@ -1071,20 +1078,139 @@ const App = {
     };
   },
 
+  handleTrackChange(section, chNumber, trackIndex, totalTracks) {
+    this.currentSection = section;
+
+    // Auto-update reading progress in AuthManager
+    if (window.AuthManager && window.AuthManager.currentUser && section.number > 0) {
+      window.AuthManager.markSectionRead(section.number);
+      window.AuthManager.currentUser.last_section_number = section.number;
+      window.AuthManager.saveUserToStorage();
+    }
+
+    // Synchronize highlight in Chapter Blog view
+    this.syncBlogNowPlaying(section, chNumber);
+
+    // Update active chapter card highlight in chapters list
+    document.querySelectorAll('.chapter-card').forEach(c => c.classList.remove('is-chapter-playing'));
+    const activeChCard = document.getElementById(`chapterCard-${chNumber}`);
+    if (activeChCard) activeChCard.classList.add('is-chapter-playing');
+
+    // Update mini bar album thumbnail with equalizer wave
+    const albumIcon = document.getElementById('miniAlbumIcon');
+    if (albumIcon) {
+      albumIcon.innerHTML = `
+        <div class="equalizer-wave">
+          <span class="equalizer-bar"></span>
+          <span class="equalizer-bar"></span>
+          <span class="equalizer-bar"></span>
+          <span class="equalizer-bar"></span>
+        </div>
+      `;
+    }
+  },
+
+  syncBlogNowPlaying(section, chNumber) {
+    // Remove previous now-playing highlights
+    document.querySelectorAll('.blog-section-card').forEach(el => {
+      el.classList.remove('is-now-playing');
+      const badge = el.querySelector('.now-playing-badge');
+      if (badge) badge.remove();
+    });
+
+    const secEl = document.getElementById(`blog-sec-${section.number}`);
+    if (secEl) {
+      secEl.classList.add('is-now-playing');
+      const headerDiv = secEl.querySelector('.blog-sec-header > div');
+      if (headerDiv && !headerDiv.querySelector('.now-playing-badge')) {
+        const badge = document.createElement('div');
+        badge.className = 'now-playing-badge';
+        badge.innerHTML = `
+          <div class="equalizer-wave">
+            <span class="equalizer-bar"></span>
+            <span class="equalizer-bar"></span>
+            <span class="equalizer-bar"></span>
+            <span class="equalizer-bar"></span>
+          </div>
+          <span>NOW PLAYING</span>
+        `;
+        headerDiv.insertBefore(badge, headerDiv.firstChild);
+      }
+
+      // Smoothly scroll active section card into view if chapter-blog tab is visible
+      const blogTab = document.getElementById('tab-chapter-blog');
+      if (blogTab && blogTab.classList.contains('active')) {
+        secEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  },
+
+  goToNowPlayingSection() {
+    const currentSec = window.TTSEngine.currentSection || this.currentSection;
+    if (!currentSec) {
+      this.switchTab('audio');
+      return;
+    }
+
+    const chNum = currentSec.chapterNumber || 1;
+    if (!this.currentChapter || this.currentChapter.number !== chNum) {
+      this.openChapterBlog(chNum);
+    } else {
+      this.switchTab('chapter-blog');
+    }
+
+    setTimeout(() => {
+      this.scrollToBlogSection(currentSec.number);
+      this.syncBlogNowPlaying(currentSec, chNum);
+    }, 120);
+  },
+
+  playChapterContinuous(chNumber, startSecNumber = null) {
+    const ch = this.findChapter(chNumber);
+    if (!ch) return;
+
+    window.TTSEngine.playChapterPlaylist(chNumber, startSecNumber);
+    const startNum = startSecNumber || (ch.sections[0] ? ch.sections[0].number : 1);
+    this.showToast(`▶ Now Playing: Chapter ${chNumber} (Starting Sec ${startNum})`);
+
+    const blogTab = document.getElementById('tab-chapter-blog');
+    if (blogTab && blogTab.classList.contains('active')) {
+      const targetSec = this.findSection(startNum);
+      if (targetSec) this.syncBlogNowPlaying(targetSec, chNumber);
+    }
+  },
+
+  toggleContinuousPlay() {
+    window.TTSEngine.toggleContinuousPlay();
+    const isContinuous = window.TTSEngine.continuousPlay;
+    const btn = document.getElementById('miniAutoplayToggle');
+    if (btn) {
+      btn.textContent = isContinuous ? '🔁 Autoplay ON' : '⏹ Autoplay OFF';
+      btn.classList.toggle('is-off', !isContinuous);
+    }
+    this.showToast(isContinuous ? '🔁 Continuous Album Autoplay: ON' : '⏹ Autoplay: OFF');
+  },
+
   updateAudioUI(state) {
     const miniBar = document.getElementById('miniAudioBar');
     const miniTitle = document.getElementById('miniTrackTitle');
     const miniSub = document.getElementById('miniTrackSub');
     const miniBtnPlay = document.getElementById('miniBtnPlay');
+    const miniToggle = document.getElementById('miniAutoplayToggle');
 
     const loungeTitle = document.getElementById('loungeTitle');
     const loungeTag = document.getElementById('loungeTag');
     const loungeBtnPlay = document.getElementById('loungeBtnPlay');
 
+    if (miniToggle) {
+      miniToggle.textContent = window.TTSEngine.continuousPlay ? '🔁 Autoplay ON' : '⏹ Autoplay OFF';
+      miniToggle.classList.toggle('is-off', !window.TTSEngine.continuousPlay);
+    }
+
     if (state.currentSection) {
       if (miniBar) miniBar.classList.add('active');
       const title = `Section ${state.currentSection.number}: ${state.currentSection.title}`;
-      const sub = `Chapter ${state.currentSection.chapterNumber} • ${state.conversationalMode ? 'Conversational Mode' : 'Verbatim'}`;
+      const sub = `Chapter ${state.currentSection.chapterNumber} • ${state.conversationalMode ? 'Conversational Explainer' : 'Verbatim'}`;
 
       if (miniTitle) miniTitle.textContent = title;
       if (miniSub) miniSub.textContent = sub;
@@ -1131,7 +1257,7 @@ const App = {
     } else if (this.currentSection) {
       window.TTSEngine.speakSection(this.currentSection);
     } else {
-      this.quickPlaySection(1);
+      this.playChapterContinuous(1);
     }
   },
 

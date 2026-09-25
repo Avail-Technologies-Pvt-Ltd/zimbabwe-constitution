@@ -22,9 +22,16 @@ const TTSEngine = {
   currentUtterance: null,
   currentAudioElement: null,
 
+  // Continuous Autoplay Playlist ("Spotify Album / Podcast Mode")
+  playlist: [],
+  currentPlaylistIndex: -1,
+  currentChapterNumber: null,
+  continuousPlay: true, // Default to continuous autoplay like Spotify/TTW
+
   // Callbacks for UI updates
   onStateChange: null,
   onParagraphChange: null,
+  onTrackChange: null,
   onError: null,
 
   init() {
@@ -40,6 +47,8 @@ const TTSEngine = {
       if (savedConv !== null) this.conversationalMode = savedConv === 'true';
       const savedEngine = localStorage.getItem('zim_tts_engine');
       if (savedEngine === 'elevenlabs') this.isElevenLabs = true;
+      const savedContinuous = localStorage.getItem('zim_tts_continuous');
+      if (savedContinuous !== null) this.continuousPlay = savedContinuous === 'true';
     } catch (e) {}
 
     return true;
@@ -197,7 +206,11 @@ const TTSEngine = {
 
   playFromIndex(index) {
     if (index >= this.paragraphs.length) {
-      this.finish();
+      if (this.continuousPlay && this.playlist && this.playlist.length > 0) {
+        this.nextTrack();
+      } else {
+        this.finish();
+      }
       return;
     }
 
@@ -368,12 +381,120 @@ const TTSEngine = {
     }
   },
 
-  previous() {
-    if (this.currentParagraphIndex > 0) {
-      this.cancelSpeech();
-      this.playFromIndex(this.currentParagraphIndex - 1);
+  /* ===================================================================
+     CONTINUOUS SPOTIFY-STYLE CHAPTER PLAYLIST MODE
+     =================================================================== */
+  playChapterPlaylist(chNumber, startSecNumber = null) {
+    this.currentChapterNumber = Number(chNumber);
+    const data = window.CONSTITUTION_DATA;
+    if (!data || !data.chapters) return;
+
+    const ch = data.chapters.find(c => c.number === Number(chNumber));
+    if (!ch || !ch.sections || ch.sections.length === 0) return;
+
+    this.playlist = ch.sections;
+    
+    let startIndex = 0;
+    if (startSecNumber !== null) {
+      const idx = this.playlist.findIndex(s => s.number === Number(startSecNumber));
+      if (idx >= 0) startIndex = idx;
+    }
+
+    this.currentPlaylistIndex = startIndex;
+    this.playCurrentTrack();
+  },
+
+  playCurrentTrack() {
+    if (!this.playlist || this.playlist.length === 0) return;
+    const sec = this.playlist[this.currentPlaylistIndex];
+    if (!sec) return;
+
+    if (this.onTrackChange) {
+      this.onTrackChange(sec, this.currentChapterNumber, this.currentPlaylistIndex, this.playlist.length);
+    }
+
+    this.speakSection(sec);
+  },
+
+  nextTrack() {
+    if (!this.playlist || this.playlist.length === 0) {
+      if (this.currentSection && this.currentSection.number < 345) {
+        // Fallback to next section by number
+        const nextNum = this.currentSection.number + 1;
+        const nextSec = (window.App && window.App.findSection) ? window.App.findSection(nextNum) : null;
+        if (nextSec) {
+          if (this.onTrackChange) {
+            this.onTrackChange(nextSec, nextSec.chapterNumber, 0, 1);
+          }
+          this.speakSection(nextSec);
+          return;
+        }
+      }
+      this.finish();
+      return;
+    }
+
+    if (this.currentPlaylistIndex < this.playlist.length - 1) {
+      this.currentPlaylistIndex++;
+      this.playCurrentTrack();
     } else {
-      this.playFromIndex(0);
+      // Reached the end of current chapter! Auto-advance to next chapter in constitution
+      const nextChNum = this.currentChapterNumber + 1;
+      const data = window.CONSTITUTION_DATA;
+      const nextCh = data && data.chapters ? data.chapters.find(c => c.number === nextChNum) : null;
+
+      if (nextCh && this.continuousPlay) {
+        if (window.App && window.App.showToast) {
+          window.App.showToast(`🎉 Chapter ${this.currentChapterNumber} complete! Moving to Chapter ${nextChNum}: ${nextCh.title}`);
+        }
+        this.playChapterPlaylist(nextChNum, null);
+      } else {
+        if (window.App && window.App.showToast) {
+          window.App.showToast('🎉 You have reached the end of the Constitutional playlist!');
+        }
+        this.finish();
+      }
+    }
+  },
+
+  previousTrack() {
+    if (!this.playlist || this.playlist.length === 0) {
+      if (this.currentSection && this.currentSection.number > 1) {
+        const prevNum = this.currentSection.number - 1;
+        const prevSec = (window.App && window.App.findSection) ? window.App.findSection(prevNum) : null;
+        if (prevSec) {
+          if (this.onTrackChange) {
+            this.onTrackChange(prevSec, prevSec.chapterNumber, 0, 1);
+          }
+          this.speakSection(prevSec);
+          return;
+        }
+      }
+      return;
+    }
+
+    if (this.currentPlaylistIndex > 0) {
+      this.currentPlaylistIndex--;
+      this.playCurrentTrack();
+    } else {
+      this.playCurrentTrack();
+    }
+  },
+
+  toggleContinuousPlay() {
+    this.continuousPlay = !this.continuousPlay;
+    try {
+      localStorage.setItem('zim_tts_continuous', this.continuousPlay.toString());
+    } catch (e) {}
+    this.notifyStateChange();
+    return this.continuousPlay;
+  },
+
+  seekSentence(delta) {
+    if (delta > 0) {
+      this.next();
+    } else {
+      this.previous();
     }
   },
 
@@ -391,7 +512,11 @@ const TTSEngine = {
         currentSection: this.currentSection,
         currentPassage: this.currentPassage,
         rate: this.rate,
-        conversationalMode: this.conversationalMode
+        conversationalMode: this.conversationalMode,
+        continuousPlay: this.continuousPlay,
+        currentChapterNumber: this.currentChapterNumber,
+        currentPlaylistIndex: this.currentPlaylistIndex,
+        playlistLength: this.playlist ? this.playlist.length : 0
       });
     }
   }

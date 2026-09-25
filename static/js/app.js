@@ -100,12 +100,12 @@ const App = {
       const dot = document.getElementById('networkDot');
 
       if (!isOnline) {
-        banner.classList.add('is-offline');
+        if (banner) banner.classList.add('is-offline');
         if (dot) dot.classList.add('offline');
         if (statusText) statusText.textContent = 'Offline Mode - 100% Constitution cached & available';
-        this.showToast('You are offline. Full constitution is active from local Cache API.');
+        this.showToast('You are offline. Full constitution is active from local Cache API.', 'info');
       } else {
-        banner.classList.remove('is-offline');
+        if (banner) banner.classList.remove('is-offline');
         if (dot) dot.classList.remove('offline');
         if (statusText) statusText.textContent = 'Online & Synced • Ready for offline access';
         if (window.AuthManager) window.AuthManager.syncOfflineData();

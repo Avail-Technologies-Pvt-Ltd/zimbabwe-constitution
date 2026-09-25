@@ -6,12 +6,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <title>Constitution of Zimbabwe - Interactive Audio & Offline Law</title>
   <meta name="description" content="Complete Constitution of Zimbabwe (2013) with searchable chapters, sections, conversational text-to-speech audio, and 100% offline access via Service Worker.">
-  <meta name="theme-color" content="#c25e1a">
+  <meta name="theme-color" content="#2563eb">
   
   <!-- Web App Manifest for mobile home screen & PWA -->
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/svg+xml" href="{% static 'icons/icon-192.svg' %}">
   <link rel="apple-touch-icon" href="{% static 'icons/icon-192.svg' %}">
+
+  <!-- Google Fonts: Plus Jakarta Sans & Newsreader -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
   <!-- Core Stylesheet -->
   <link rel="stylesheet" href="{% static 'css/styles.css' %}">
@@ -26,7 +34,9 @@
     <header class="app-header">
       <div class="header-content">
         <a class="brand" onclick="App.switchTab('chapters')">
-          <img src="{% static 'icons/icon-192.svg' %}" alt="Zimbabwe Emblem" class="brand-icon">
+          <div class="brand-badge-icon">
+            <i class="fa-solid fa-scale-balanced"></i>
+          </div>
           <div class="brand-titles">
             <span class="brand-title">
               Zim Constitution
@@ -38,24 +48,34 @@
 
         <!-- Desktop Navigation Bar -->
         <nav class="header-nav-desktop">
-          <button class="desktop-nav-link active" data-tab="chapters" onclick="App.switchTab('chapters')">Chapters</button>
-          <button class="desktop-nav-link" data-tab="search" onclick="App.switchTab('search')">Search</button>
-          <button class="desktop-nav-link" data-tab="audio" onclick="App.switchTab('audio')">Audio Player</button>
-          <button class="desktop-nav-link" data-tab="bookmarks" onclick="App.switchTab('bookmarks')">Bookmarks</button>
-          <button class="desktop-nav-link" data-tab="overview" onclick="App.switchTab('overview')">Overview</button>
+          <button class="desktop-nav-link active" data-tab="chapters" onclick="App.switchTab('chapters')">
+            <i class="fa-solid fa-book"></i> Chapters
+          </button>
+          <button class="desktop-nav-link" data-tab="search" onclick="App.switchTab('search')">
+            <i class="fa-solid fa-magnifying-glass"></i> Search
+          </button>
+          <button class="desktop-nav-link" data-tab="audio" onclick="App.switchTab('audio')">
+            <i class="fa-solid fa-headphones"></i> Audio Player
+          </button>
+          <button class="desktop-nav-link" data-tab="bookmarks" onclick="App.switchTab('bookmarks')">
+            <i class="fa-solid fa-bookmark"></i> Bookmarks
+          </button>
+          <button class="desktop-nav-link" data-tab="overview" onclick="App.switchTab('overview')">
+            <i class="fa-solid fa-circle-info"></i> Overview
+          </button>
         </nav>
 
         <!-- Header Actions -->
         <div class="header-actions">
           <!-- User Profile / Login by Email Button -->
           <button class="user-profile-btn" id="userProfileBtn" onclick="App.openAuthModal('login')" title="Sign in with email to save reading progress">
-            👤 Sign In
+            <i class="fa-regular fa-circle-user"></i> <span id="userProfileLabel">Sign In</span>
           </button>
           <button class="icon-btn" onclick="App.switchTab('search')" title="Search Constitution">
-            🔍
+            <i class="fa-solid fa-magnifying-glass"></i>
           </button>
-          <button class="icon-btn" onclick="App.cycleTheme()" title="Switch Theme (Warm Sun, Warm Dark, Sepia)">
-            🌓
+          <button class="icon-btn" onclick="App.cycleTheme()" title="Switch Theme (Light, Dark, Sepia)">
+            <i class="fa-solid fa-circle-half-stroke"></i>
           </button>
         </div>
       </div>
@@ -65,7 +85,7 @@
     <div class="offline-banner" id="offlineBanner">
       <div class="banner-left">
         <span class="status-dot" id="networkDot"></span>
-        <span id="networkStatusText">Checking Service Worker & Cache status...</span>
+        <span id="networkStatusText">Checking offline status...</span>
       </div>
       <span id="cacheBadge" style="font-size: 0.72rem; opacity: 0.85;">Offline Ready</span>
     </div>
@@ -76,62 +96,48 @@
       <!-- 1. CHAPTERS ACCORDION PANE -->
       <section id="tab-chapters" class="tab-pane active">
 
-        <!-- Welcoming Hero & Continuous Spotify-Style Audio Banner -->
-        <div class="welcome-hero">
-          <div class="album-hero-layout">
-            <div class="album-cover-badge">
-              <div class="album-art-inner">
-                <span class="album-art-icon">🇿🇼</span>
-                <span class="album-art-tag">CONSTITUTION</span>
-              </div>
-            </div>
-            <div class="album-meta-info">
-              <div class="welcome-badge-pill">🎧 Audio Album & Podcast Edition</div>
-              <h1 class="welcome-title">The Constitution of Zimbabwe</h1>
-              <p class="welcome-quote">
-                Listen to Zimbabwe's supreme law like a Spotify podcast or Through the Word (TTW) scripture. Start Chapter 1 and enjoy smooth, continuous narration section-by-section, or read along with synchronized highlighting.
-              </p>
-              <div class="album-hero-cta-row">
-                <button class="btn-play-album-master" onclick="App.playChapterContinuous(1)" title="Play from Chapter 1 continuously">
-                  <span class="play-triangle">▶</span> Play Chapter 1 (Continuous)
-                </button>
-                <button class="btn-album-secondary" onclick="App.openChapterBlog(1)" title="Open Chapter 1 Editorial Blog">
-                  📖 Read Chapter 1 Blog
-                </button>
-              </div>
-            </div>
+        <!-- Minimal Spotify / TTW Album Header -->
+        <div class="album-hero">
+          <div class="album-cover">
+            <i class="fa-solid fa-scale-balanced album-cover-icon"></i>
+            <span class="album-cover-label">2013</span>
           </div>
-
-          <div class="welcome-actions-grid">
-            <div class="welcome-action-card" onclick="App.playChapterContinuous(4)">
-              <span class="welcome-action-icon">🛡️</span>
-              <span class="welcome-action-label">Play Bill of Rights</span>
-              <span class="welcome-action-sub">Chapter 4 (Continuous)</span>
+          <div class="album-details">
+            <div class="album-eyebrow">
+              <span class="album-type">AUDIOBOOK & BIBLE-STYLE READING</span>
+              <span class="album-dot">•</span>
+              <span class="album-badge">18 CHAPTERS</span>
             </div>
-            <div class="welcome-action-card" onclick="App.switchTab('audio')">
-              <span class="welcome-action-icon">🎙️</span>
-              <span class="welcome-action-label">Audio Lounge</span>
-              <span class="welcome-action-sub">HD Voices & Controls</span>
-            </div>
-            <div class="welcome-action-card" onclick="App.switchTab('search')">
-              <span class="welcome-action-icon">🔍</span>
-              <span class="welcome-action-label">Instant Search</span>
-              <span class="welcome-action-sub">345 Sections & Keywords</span>
-            </div>
-            <div class="welcome-action-card" onclick="App.openPreamble()">
-              <span class="welcome-action-icon">📜</span>
-              <span class="welcome-action-label">Read Preamble</span>
-              <span class="welcome-action-sub">Founding Values</span>
+            <h1 class="album-title">The Constitution of Zimbabwe</h1>
+            <p class="album-description">
+              Listen seamlessly chapter-by-chapter like a podcast album, or read along with synchronized audio guidance.
+            </p>
+            <div class="album-actions">
+              <button class="btn-spotify-play" onclick="App.playChapterContinuous(1)">
+                <i class="fa-solid fa-play"></i> Play Chapter 1
+              </button>
+              <button class="btn-spotify-secondary" onclick="App.openChapterBlog(1)">
+                <i class="fa-solid fa-book-open"></i> Read Chapter 1
+              </button>
+              <button class="btn-spotify-ghost" onclick="App.openPreamble()">
+                <i class="fa-solid fa-scroll"></i> Preamble
+              </button>
             </div>
           </div>
         </div>
 
-        <div class="view-header">
-          <h2 class="view-title">Constitutional Chapters</h2>
-          <p class="view-subtitle">Select any chapter to explore parts, sections, and track your reading progress.</p>
+        <!-- Tracklist Section Header -->
+        <div class="tracklist-header-row">
+          <div>
+            <h2 class="tracklist-title">Chapters Tracklist</h2>
+            <p class="tracklist-sub">18 Chapters • 345 Sections • Continuous Audio</p>
+          </div>
+          <div class="tracklist-header-meta" id="overallProgressText">
+            <!-- Filled dynamically -->
+          </div>
         </div>
 
-        <div id="chaptersContainer">
+        <div id="chaptersContainer" class="album-tracklist-container">
           <!-- Populated dynamically by App.renderChaptersList() -->
         </div>
       </section>
@@ -185,31 +191,36 @@
 
           <!-- Playback Controls -->
           <div class="audio-controls-row">
-            <button class="btn-ctrl" onclick="window.TTSEngine.previous()" title="Previous sentence">⏮</button>
-            <button class="btn-ctrl btn-play-primary" id="loungeBtnPlay" onclick="App.toggleAudioPlay()" title="Play / Pause">▶</button>
-            <button class="btn-ctrl" onclick="window.TTSEngine.next()" title="Next sentence">⏭</button>
-            <button class="btn-ctrl" onclick="window.TTSEngine.stop()" title="Stop audio">⏹</button>
+            <button class="btn-ctrl" onclick="window.TTSEngine.previous()" title="Previous sentence">
+              <i class="fa-solid fa-backward-step"></i>
+            </button>
+            <button class="btn-ctrl btn-play-primary" id="loungeBtnPlay" onclick="App.toggleAudioPlay()" title="Play / Pause">
+              <i class="fa-solid fa-play"></i>
+            </button>
+            <button class="btn-ctrl" onclick="window.TTSEngine.next()" title="Next sentence">
+              <i class="fa-solid fa-forward-step"></i>
+            </button>
+            <button class="btn-ctrl" onclick="window.TTSEngine.stop()" title="Stop audio">
+              <i class="fa-solid fa-stop"></i>
+            </button>
           </div>
 
           <!-- Audio Settings -->
           <div class="audio-settings-grid">
             <div class="setting-group">
-              <label class="setting-label" for="speedSelect">Playback Speed</label>
-              <select id="speedSelect" class="select-control">
-                <option value="0.75">0.75x (Careful)</option>
-                <option value="1.0" selected>1.0x (Normal)</option>
-                <option value="1.25">1.25x (Brisk)</option>
-                <option value="1.5">1.5x (Fast)</option>
-                <option value="2.0">2.0x (Speed Read)</option>
-              </select>
+              <label class="setting-label">Playback Speed</label>
+              <button type="button" class="btn-picker-control" id="btnSpeedPicker" onclick="App.openSpeedSelector()">
+                <span id="speedValueLabel"><i class="fa-solid fa-gauge-high"></i> 1.0x (Normal)</span>
+                <i class="fa-solid fa-chevron-down picker-arrow"></i>
+              </button>
             </div>
 
             <div class="setting-group">
-              <label class="setting-label" for="voiceSelect">Speech Voice & Quality</label>
-              <select id="voiceSelect" class="select-control">
-                <option value="">Default Conversational Voice (Device)</option>
-                <option value="elevenlabs">🌟 ElevenLabs AI Voice (Premium HD)</option>
-              </select>
+              <label class="setting-label">Speech Voice & Quality</label>
+              <button type="button" class="btn-picker-control" id="btnVoicePicker" onclick="App.openVoiceSelector()">
+                <span id="voiceValueLabel"><i class="fa-solid fa-microphone"></i> Natural Device Voice</span>
+                <i class="fa-solid fa-chevron-down picker-arrow"></i>
+              </button>
             </div>
 
             <div class="setting-group" style="grid-column: 1 / -1; display:flex; flex-direction:row; align-items:center; gap:0.6rem; margin-top:0.5rem;">
@@ -325,23 +336,34 @@
 
     <!-- Floating Persistent Mini Audio Bar (Spotify-Style Track Bar) -->
     <div class="mini-audio-bar" id="miniAudioBar">
+      <div class="mini-progress-track">
+        <div class="mini-progress-fill" id="miniProgressFill"></div>
+      </div>
       <div class="mini-bar-content">
         <div class="mini-track-info" onclick="App.goToNowPlayingSection()" title="Click to view now-playing section">
-          <div class="mini-playing-icon" id="miniAlbumIcon">🎵</div>
+          <div class="mini-playing-icon" id="miniAlbumIcon">
+            <i class="fa-solid fa-scale-balanced"></i>
+          </div>
           <div class="mini-titles">
             <span class="mini-sec-title" id="miniTrackTitle">Zimbabwean Constitution Audio</span>
             <span class="mini-sec-sub" id="miniTrackSub">Tap to read along</span>
           </div>
         </div>
         <div class="mini-controls">
-          <button class="btn-ctrl" style="width:36px; height:36px; font-size:0.9rem;" onclick="window.TTSEngine.previousTrack()" title="Previous Section">⏮</button>
-          <button class="btn-ctrl btn-play-primary" style="width:42px; height:42px; font-size:1.05rem;" id="miniBtnPlay" onclick="App.toggleAudioPlay()" title="Play / Pause">▶</button>
-          <button class="btn-ctrl" style="width:36px; height:36px; font-size:0.9rem;" onclick="window.TTSEngine.nextTrack()" title="Next Section">⏭</button>
-          <button class="btn-pill mini-autoplay-toggle" id="miniAutoplayToggle" onclick="App.toggleContinuousPlay()" title="Toggle Continuous Album Autoplay">
-            🔁 Autoplay ON
+          <button class="player-btn-nav" onclick="window.TTSEngine.previousTrack()" title="Previous Section">
+            <i class="fa-solid fa-backward-step"></i>
           </button>
-          <button class="btn-pill mini-read-along-btn" onclick="App.goToNowPlayingSection()" title="Read along with current section">
-            📖 Read Along
+          <button class="player-btn-main" id="miniBtnPlay" onclick="App.toggleAudioPlay()" title="Play / Pause">
+            <i class="fa-solid fa-play"></i>
+          </button>
+          <button class="player-btn-nav" onclick="window.TTSEngine.nextTrack()" title="Next Section">
+            <i class="fa-solid fa-forward-step"></i>
+          </button>
+          <button class="player-pill-btn mini-autoplay-toggle" id="miniAutoplayToggle" onclick="App.toggleContinuousPlay()" title="Toggle Continuous Album Autoplay">
+            <i class="fa-solid fa-repeat"></i> <span>Autoplay</span>
+          </button>
+          <button class="player-pill-btn mini-read-along-btn" onclick="App.goToNowPlayingSection()" title="Read along with current section">
+            <i class="fa-solid fa-book-open"></i> <span>Read</span>
           </button>
         </div>
       </div>
@@ -350,23 +372,23 @@
     <!-- Mobile Bottom Navigation Bar -->
     <nav class="bottom-nav">
       <button class="nav-item active" data-tab="chapters" onclick="App.switchTab('chapters')">
-        <span class="nav-icon">📖</span>
+        <i class="nav-icon fa-solid fa-book"></i>
         <span>Chapters</span>
       </button>
       <button class="nav-item" data-tab="search" onclick="App.switchTab('search')">
-        <span class="nav-icon">🔍</span>
+        <i class="nav-icon fa-solid fa-magnifying-glass"></i>
         <span>Search</span>
       </button>
       <button class="nav-item" data-tab="audio" onclick="App.switchTab('audio')">
-        <span class="nav-icon">🎧</span>
+        <i class="nav-icon fa-solid fa-headphones"></i>
         <span>Audio</span>
       </button>
       <button class="nav-item" data-tab="bookmarks" onclick="App.switchTab('bookmarks')">
-        <span class="nav-icon">★</span>
+        <i class="nav-icon fa-solid fa-bookmark"></i>
         <span>Bookmarks</span>
       </button>
       <button class="nav-item" data-tab="overview" onclick="App.switchTab('overview')">
-        <span class="nav-icon">ℹ️</span>
+        <i class="nav-icon fa-solid fa-circle-info"></i>
         <span>About</span>
       </button>
     </nav>
@@ -421,7 +443,9 @@
   <script src="{% static 'js/bookmarks.js' %}"></script>
   <script src="{% static 'js/search.js' %}"></script>
   <script src="{% static 'js/tts-engine.js' %}"></script>
-  <script src="{% static 'js/auth.js' %}"></script>
+  <!-- SweetAlert2 for modern modals, toasts, and pickers -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
   <script src="{% static 'js/app.js' %}"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@
  * Caches core app shell (HTML, CSS, JS) and constitutional data for 100% offline access.
  */
 
-const CACHE_VERSION = 'v1.1.0';
+const CACHE_VERSION = 'v2.0.0';
 const CACHE_NAME = `zim-constitution-${CACHE_VERSION}`;
 
 // Core assets to pre-cache on install

@@ -43,11 +43,18 @@ const App = {
 
     // Render Initial UI
     this.renderChaptersList();
-    this.renderVoiceOptions();
+    this.updateSpeedButtonLabel();
+    this.updateVoiceButtonLabel();
     this.renderFilterPills();
     this.setupEventListeners();
     this.setupTTSListeners();
     this.updateUserUI(window.AuthManager ? window.AuthManager.currentUser : null);
+
+    if (window.speechSynthesis) {
+      window.speechSynthesis.addEventListener('voiceschanged', () => {
+        this.updateVoiceButtonLabel();
+      });
+    }
 
     // Handle Deep Linking / Hash routing
     this.handleRoute();
@@ -201,7 +208,7 @@ const App = {
       btn.title = `Signed in as ${user.email}. Click for account details.`;
       btn.onclick = () => this.openProfileMenu();
     } else {
-      btn.innerHTML = `👤 Sign In`;
+      btn.innerHTML = `<i class="fa-regular fa-user"></i> Sign In`;
       btn.title = `Sign in with email to save reading progress`;
       btn.onclick = () => this.openAuthModal('login');
     }
@@ -275,7 +282,7 @@ const App = {
     }
   },
 
-  openProfileMenu() {
+  async openProfileMenu() {
     const user = window.AuthManager ? window.AuthManager.currentUser : null;
     if (!user) {
       this.openAuthModal('login');
@@ -286,23 +293,30 @@ const App = {
     const pct = window.AuthManager.getPercentage();
     const isPremium = user.is_premium;
 
-    const action = confirm(
-      `👤 Profile: ${user.name || 'Citizen'}\n` +
-      `📧 Email: ${user.email}\n` +
-      `📊 Reading Progress: ${totalRead}/345 sections (${pct}%)\n` +
-      `🌟 Account Tier: ${isPremium ? 'Premium (ElevenLabs AI Voice Active)' : 'Standard Free Tier'}\n\n` +
-      `[OK] = Toggle Demo Premium Status\n` +
-      `[Cancel] = Sign Out / Keep Status`
-    );
+    const result = await Swal.fire({
+      title: user.name || 'Citizen Profile',
+      html: `
+        <div style="text-align:left; font-size:0.92rem; line-height:1.8; color:var(--text-muted); margin-top:0.5rem;">
+          <div><strong style="color:var(--text-main);">Email:</strong> ${this.escapeHtml(user.email)}</div>
+          <div><strong style="color:var(--text-main);">Reading Progress:</strong> ${totalRead} of 345 sections (${pct}%)</div>
+          <div><strong style="color:var(--text-main);">Account Tier:</strong> ${isPremium ? '<span style="color:#16a34a; font-weight:700;"><i class="fa-solid fa-crown"></i> Premium (ElevenLabs HD Voice)</span>' : 'Standard Free'}</div>
+        </div>
+      `,
+      showCancelButton: true,
+      showDenyButton: true,
+      confirmButtonText: isPremium ? 'Switch to Standard Tier' : 'Activate Premium Pass',
+      confirmButtonColor: '#2563eb',
+      denyButtonText: 'Sign Out',
+      denyButtonColor: '#ef4444',
+      cancelButtonText: 'Close',
+      cancelButtonColor: '#94a3b8'
+    });
 
-    if (action) {
+    if (result.isConfirmed) {
       this.toggleDemoPremium();
-    } else {
-      const doLogout = confirm('Do you want to sign out of your account?');
-      if (doLogout) {
-        window.AuthManager.logout();
-        this.showToast('Signed out.');
-      }
+    } else if (result.isDenied) {
+      window.AuthManager.logout();
+      this.showToast('Signed out successfully.');
     }
   },
 
@@ -411,6 +425,9 @@ const App = {
   /* ===================================================================
      CHAPTERS ACCORDION & PROGRESS CARD
      =================================================================== */
+  /* ===================================================================
+     CHAPTERS SPOTIFY TRACKLIST
+     =================================================================== */
   renderChaptersList() {
     const container = document.getElementById('chaptersContainer');
     if (!container) return;
@@ -419,32 +436,29 @@ const App = {
     const pct = window.AuthManager ? window.AuthManager.getPercentage() : 0;
     const lastSection = window.AuthManager && window.AuthManager.currentUser ? window.AuthManager.currentUser.last_section_number : 1;
 
-    let html = `
-      <!-- User Reading Progress Card -->
-      <div class="progress-card">
-        <div class="progress-header">
-          <span class="progress-title">📊 Your Constitutional Progress</span>
-          <span class="progress-stats"><strong>${totalRead}</strong> / 345 sections (${pct}%)</span>
-        </div>
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill" style="width: ${pct}%;"></div>
-        </div>
-        <div class="progress-footer">
-          <span>${pct >= 100 ? '🎉 Entire Constitution Completed!' : 'Keep reading to complete Zimbabwe\'s Supreme Law'}</span>
-          <button class="btn-resume" onclick="App.openSection(${lastSection})">
-            Resume Section ${lastSection} →
-          </button>
-        </div>
-      </div>
+    // Update overall header meta
+    const progressMeta = document.getElementById('overallProgressText');
+    if (progressMeta) {
+      progressMeta.innerHTML = `<i class="fa-solid fa-check"></i> ${totalRead} of 345 sections (${pct}%)`;
+    }
 
-      <div class="chapter-card" style="border-left: 4px solid var(--gold);">
-        <div class="chapter-header" onclick="App.openPreamble()">
-          <div class="ch-info">
-            <span class="ch-tag">Founding Charter</span>
-            <h3 class="ch-title">Preamble</h3>
-            <span class="ch-meta">"We the people of Zimbabwe..."</span>
+    let html = `
+      <!-- Preamble Track Row -->
+      <div class="track-row" id="trackRow-0">
+        <div class="track-left" onclick="App.openPreamble()">
+          <span class="track-num"><i class="fa-solid fa-scroll" style="font-size:0.8rem; color:var(--primary);"></i></span>
+          <div class="track-info-group">
+            <h4 class="track-title">Preamble</h4>
+            <span class="track-sub">Founding Charter • "We the people of Zimbabwe..."</span>
           </div>
-          <span class="btn-blog-read" style="padding:0.4rem 0.75rem; font-size:0.75rem;">Read Preamble →</span>
+        </div>
+        <div class="track-right" onclick="event.stopPropagation()">
+          <button class="btn-track-play" onclick="App.quickPlayPreamble()" title="Play Preamble Audio">
+            <i class="fa-solid fa-play"></i>
+          </button>
+          <button class="btn-track-read" onclick="App.openPreamble()" title="Read Preamble">
+            <i class="fa-solid fa-book-open"></i> <span>Read</span>
+          </button>
         </div>
       </div>
     `;
@@ -453,7 +467,7 @@ const App = {
       const sectionCount = ch.sections.length;
       const firstSec = ch.sections[0] ? ch.sections[0].number : '';
       const lastSec = ch.sections[sectionCount - 1] ? ch.sections[sectionCount - 1].number : '';
-      const rangeText = sectionCount > 0 ? `Sections ${firstSec} – ${lastSec} (${sectionCount} sections)` : 'Overview';
+      const rangeText = sectionCount > 0 ? `Sections ${firstSec}–${lastSec} • ${sectionCount} sections` : 'Overview';
 
       // Count read in this chapter
       let chReadCount = 0;
@@ -463,50 +477,47 @@ const App = {
         });
       }
 
+      const padNum = String(ch.number).padStart(2, '0');
+
       html += `
-        <div class="chapter-card" id="chapterCard-${ch.number}">
-          <div class="chapter-header" onclick="App.openChapterBlog(${ch.number})">
-            <div class="ch-info">
-              <span class="ch-tag">
-                Chapter ${ch.number}
-                ${chReadCount > 0 ? `<span class="read-badge">${chReadCount}/${sectionCount} read</span>` : ''}
-              </span>
-              <h3 class="ch-title">${this.escapeHtml(ch.title)}</h3>
-              <span class="ch-meta">${rangeText}</span>
-            </div>
-            <div style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap; justify-content:flex-end;" onclick="event.stopPropagation()">
-              <button class="btn-chapter-play" onclick="App.playChapterContinuous(${ch.number})" title="Play Chapter ${ch.number} continuously like a Spotify album">
-                ▶ Play Chapter
-              </button>
-              <button class="btn-blog-read" style="padding:0.38rem 0.75rem; font-size:0.75rem;" onclick="App.openChapterBlog(${ch.number})" title="Open Chapter in Editorial Blog View">
-                📖 Read Blog
-              </button>
-              <button class="icon-btn" style="width:32px; height:32px; font-size:0.75rem;" onclick="App.toggleChapter(${ch.number})" title="View Sections List">
-                ▼
-              </button>
+        <div class="track-row" id="trackRow-${ch.number}">
+          <div class="track-left" onclick="App.openChapterBlog(${ch.number})">
+            <span class="track-num">${padNum}</span>
+            <div class="track-info-group">
+              <h4 class="track-title">${this.escapeHtml(ch.title)}</h4>
+              <span class="track-sub">${rangeText} ${chReadCount > 0 ? `• <span style="color:#16a34a; font-weight:600;">${chReadCount}/${sectionCount} read</span>` : ''}</span>
             </div>
           </div>
-          <div class="sections-list" id="sectionsList-${ch.number}">
-            ${ch.sections.map(sec => {
-              const isRead = window.AuthManager ? window.AuthManager.isSectionRead(sec.number) : false;
-              return `
-                <div class="section-item" onclick="App.openSection(${sec.number})">
-                  <div class="sec-left">
-                    <span class="sec-num">${sec.number}</span>
-                    <span class="sec-title">
-                      ${this.escapeHtml(sec.title)}
-                      ${isRead ? '<span class="read-badge">✓ Read</span>' : ''}
-                    </span>
-                  </div>
-                  <div class="sec-actions">
-                    <button class="btn-mini-listen" onclick="event.stopPropagation(); App.playChapterContinuous(${ch.number}, ${sec.number})" title="Play continuously from Section ${sec.number}">
-                      ▶ Play
-                    </button>
-                  </div>
+          <div class="track-right" onclick="event.stopPropagation()">
+            <button class="btn-track-play" onclick="App.playChapterContinuous(${ch.number})" title="Play Chapter ${ch.number} continuously">
+              <i class="fa-solid fa-play"></i>
+            </button>
+            <button class="btn-track-read" onclick="App.openChapterBlog(${ch.number})" title="Read Chapter ${ch.number}">
+              <i class="fa-solid fa-book-open"></i> <span>Read</span>
+            </button>
+            <button class="btn-track-expand" onclick="App.toggleChapter(${ch.number})" title="Show Sections">
+              <i class="fa-solid fa-chevron-down"></i>
+            </button>
+          </div>
+        </div>
+        <div class="track-subsections" id="sectionsList-${ch.number}">
+          ${ch.sections.map(sec => {
+            const isRead = window.AuthManager ? window.AuthManager.isSectionRead(sec.number) : false;
+            return `
+              <div class="subtrack-item" onclick="App.openSection(${sec.number})">
+                <div class="subtrack-left">
+                  <span class="subtrack-sec-num">Sec ${sec.number}</span>
+                  <span class="subtrack-title">
+                    ${this.escapeHtml(sec.title)}
+                    ${isRead ? ' <span style="color:#16a34a; font-size:0.75rem;"><i class="fa-solid fa-check"></i></span>' : ''}
+                  </span>
                 </div>
-              `;
-            }).join('')}
-          </div>
+                <button class="btn-sec-action" onclick="event.stopPropagation(); App.playChapterContinuous(${ch.number}, ${sec.number})" title="Play from Section ${sec.number}">
+                  <i class="fa-solid fa-play"></i>
+                </button>
+              </div>
+            `;
+          }).join('')}
         </div>
       `;
     });
@@ -566,104 +577,76 @@ const App = {
     const lastSec = ch.sections[sectionCount - 1] ? ch.sections[sectionCount - 1].number : 1;
 
     let html = `
-      <div class="chapter-blog-wrapper">
+      <div class="reader-blog-wrapper">
         
-        <!-- Chapter Hero Banner (Warm Accents of White) -->
-        <div class="chapter-blog-hero">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.75rem;">
-            <button class="blog-back-btn" onclick="App.switchTab('chapters')">
-              ← Back to Chapters
+        <!-- Sticky Navigation & Controls Bar -->
+        <div class="reader-sticky-top">
+          <button class="btn-reader-back" onclick="App.switchTab('chapters')">
+            <i class="fa-solid fa-arrow-left"></i> Chapters
+          </button>
+          <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <button class="btn-spotify-play" style="padding:0.45rem 1rem; font-size:0.82rem;" onclick="App.playChapterContinuous(${ch.number})">
+              <i class="fa-solid fa-play"></i> Play Chapter Audio
             </button>
-            <span class="chapter-blog-tag">Chapter ${ch.number} • Supreme Law of Zimbabwe</span>
+            <button class="btn-spotify-secondary" style="padding:0.42rem 0.85rem; font-size:0.82rem;" onclick="App.scrollToBlogSection(${firstSec})">
+              <i class="fa-solid fa-book-open"></i> Read
+            </button>
           </div>
+          <div style="display:flex; gap:0.35rem;">
+            <button class="btn-pill" onclick="App.toggleSerif()">
+              ${this.useSerif ? 'Sans' : 'Serif'}
+            </button>
+            <button class="btn-pill" onclick="App.changeFontSize(-1)">A-</button>
+            <button class="btn-pill" onclick="App.changeFontSize(1)">A+</button>
+          </div>
+        </div>
 
-          <h1 class="chapter-blog-title">${this.escapeHtml(ch.title)}</h1>
-
-          <div class="chapter-blog-meta">
-            <span class="chapter-blog-meta-item">⏱️ ~${readingMins} min read</span>
-            <span class="chapter-blog-meta-item">📜 Sections ${firstSec} – ${lastSec} (${sectionCount} total)</span>
-            <span class="chapter-blog-meta-item" id="blogReadCounter">
-              ✅ <strong id="blogReadCountText">${chReadCount}</strong>/${sectionCount} completed
+        <div style="margin-bottom: 2rem;">
+          <div style="font-size:0.8rem; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">
+            Chapter ${ch.number}
+          </div>
+          <h1 class="reader-chapter-title">${this.escapeHtml(ch.title)}</h1>
+          <div class="reader-chapter-meta">
+            <span class="reader-chapter-meta-item"><i class="fa-regular fa-clock"></i> ~${readingMins} min read</span>
+            <span class="reader-chapter-meta-item"><i class="fa-solid fa-scale-balanced"></i> Sections ${firstSec}–${lastSec}</span>
+            <span class="reader-chapter-meta-item" id="blogReadCounter">
+              <i class="fa-solid fa-check"></i> <strong id="blogReadCountText">${chReadCount}</strong>/${sectionCount} completed
             </span>
           </div>
-
-          <div class="chapter-blog-toolbar">
-            <div class="chapter-blog-actions-left" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-              <button class="btn-play-album-master" style="padding:0.45rem 1rem; font-size:0.82rem;" onclick="App.playChapterContinuous(${ch.number})" title="Play Chapter ${ch.number} continuously like a Spotify album">
-                ▶ Play Chapter (Continuous)
-              </button>
-              <button class="btn-blog-read" onclick="App.scrollToBlogSection(${firstSec})">
-                📖 Read Chapter
-              </button>
-            </div>
-            <div style="display:flex; gap:0.4rem;">
-              <button class="btn-pill" onclick="App.toggleSerif()">
-                ${this.useSerif ? 'Sans' : 'Serif'}
-              </button>
-              <button class="btn-pill" onclick="App.changeFontSize(-1)">A-</button>
-              <button class="btn-pill" onclick="App.changeFontSize(1)">A+</button>
-            </div>
-          </div>
         </div>
 
-        <!-- Table of Contents / Quick Jump Pills -->
-        <div class="chapter-blog-toc">
-          <div class="chapter-blog-toc-title">📑 Jump to Section:</div>
-          <div class="chapter-blog-toc-pills">
-            ${ch.sections.map(s => `
-              <a class="toc-pill" onclick="App.scrollToBlogSection(${s.number})">
-                Sec ${s.number}: ${this.escapeHtml(s.title.substring(0, 32))}${s.title.length > 32 ? '...' : ''}
-              </a>
-            `).join('')}
-          </div>
-        </div>
-
-        <!-- Editorial Section Cards (Warm Accents of White) -->
-        <div class="chapter-blog-sections-list">
+        <!-- Section Reading Blocks -->
+        <div class="reader-sections-container">
           ${ch.sections.map(sec => {
             const isRead = window.AuthManager ? window.AuthManager.isSectionRead(sec.number) : false;
             const isBookmarked = window.BookmarksManager ? window.BookmarksManager.isBookmarked(sec.number) : false;
             return `
-              <article class="blog-section-card" id="blog-sec-${sec.number}">
-                <div class="blog-sec-header">
-                  <div>
-                    <div class="blog-sec-num">SECTION ${sec.number}</div>
-                    <h2 class="blog-sec-title">${this.escapeHtml(sec.title)}</h2>
-                  </div>
-                  <div class="blog-sec-actions">
-                    <button class="btn-mark-read ${isRead ? 'is-read' : ''}" 
-                            id="btnBlogRead-${sec.number}" 
-                            onclick="App.toggleBlogSectionRead(${sec.number}, ${ch.number})" 
-                            title="Toggle reading progress">
-                      ${isRead ? '✓ Read' : 'Mark as Read'}
+              <article class="reader-section-block" id="blog-sec-${sec.number}">
+                <div class="reader-sec-header">
+                  <span class="reader-sec-num">Section ${sec.number}</span>
+                  <div class="reader-sec-actions">
+                    <button class="btn-sec-action" onclick="App.playChapterContinuous(${ch.number}, ${sec.number})" title="Play from Section ${sec.number}">
+                      <i class="fa-solid fa-play"></i>
                     </button>
-                    <button class="icon-btn" 
-                            onclick="App.playChapterContinuous(${ch.number}, ${sec.number})" 
-                            title="Play continuously from Section ${sec.number}">
-                      ▶
+                    <button class="btn-sec-action ${isRead ? 'is-read' : ''}" id="btnBlogRead-${sec.number}" onclick="App.toggleBlogSectionRead(${sec.number}, ${ch.number})" title="Mark as read">
+                      <i class="fa-solid fa-check"></i>
                     </button>
-                    <button class="btn-pill ${isBookmarked ? 'active' : ''}" 
-                            id="btnBlogBookmark-${sec.number}" 
-                            onclick="App.toggleBlogBookmark(${sec.number})" 
-                            title="Bookmark section">
-                      ${isBookmarked ? '★' : '☆'}
+                    <button class="btn-sec-action ${isBookmarked ? 'is-bookmarked' : ''}" id="btnBlogBookmark-${sec.number}" onclick="App.toggleBlogBookmark(${sec.number})" title="Bookmark section">
+                      <i class="fa-${isBookmarked ? 'solid' : 'regular'} fa-bookmark"></i>
                     </button>
                   </div>
                 </div>
 
+                <h2 class="reader-sec-title">${this.escapeHtml(sec.title)}</h2>
+
                 ${sec.summary ? `
-                  <div class="conversational-box" style="margin-bottom: 1.25rem;">
-                    <div class="conv-header">
-                      <span class="conv-badge">💬 Plain English Context</span>
-                      <button class="btn-listen-explainer" onclick="App.quickPlaySection(${sec.number})">
-                        ▶ Listen with TTS
-                      </button>
-                    </div>
-                    <p class="conv-text">${this.escapeHtml(sec.summary)}</p>
+                  <div class="reader-explainer-card">
+                    <div class="reader-explainer-tag"><i class="fa-solid fa-sparkles"></i> Plain English Context</div>
+                    <p>${this.escapeHtml(sec.summary)}</p>
                   </div>
                 ` : ''}
 
-                <div class="blog-sec-body">
+                <div class="reader-sec-body">
                   ${sec.content.split('\n\n').filter(p => p.trim()).map((p, idx) => `
                     <div class="reader-paragraph" onclick="App.speakBlogPassage(this, ${sec.number})">
                       ${this.formatParagraphText(p)}
@@ -676,22 +659,22 @@ const App = {
           }).join('')}
         </div>
 
-        <!-- Sticky Floating Bottom Bar -->
-        <div class="blog-floating-bar">
+        <!-- Sticky Floating Bottom Navigation -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2.5rem; padding-top:1.5rem; border-top:1px solid var(--border-color);">
           <div>
             ${ch.number > 1 ? `
-              <button class="blog-back-btn" onclick="App.openChapterBlog(${ch.number - 1})">
-                ← Chapter ${ch.number - 1}
+              <button class="btn-reader-back" onclick="App.openChapterBlog(${ch.number - 1})">
+                <i class="fa-solid fa-arrow-left"></i> Chapter ${ch.number - 1}
               </button>
             ` : '<span></span>'}
           </div>
-          <button class="btn-blog-read" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">
-            ↑ Top of Chapter
+          <button class="btn-reader-back" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">
+            <i class="fa-solid fa-arrow-up"></i> Top
           </button>
           <div>
             ${ch.number < 18 ? `
-              <button class="blog-back-btn" onclick="App.openChapterBlog(${ch.number + 1})">
-                Chapter ${ch.number + 1} →
+              <button class="btn-reader-back" onclick="App.openChapterBlog(${ch.number + 1})">
+                Chapter ${ch.number + 1} <i class="fa-solid fa-arrow-right"></i>
               </button>
             ` : '<span></span>'}
           </div>
@@ -763,7 +746,7 @@ const App = {
     const isNow = window.BookmarksManager.toggleBookmark(section);
     const btn = document.getElementById(`btnBlogBookmark-${secNum}`);
     if (btn) {
-      btn.textContent = isNow ? '★' : '☆';
+      btn.innerHTML = isNow ? '<i class="fa-solid fa-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>';
       btn.classList.toggle('active', isNow);
     }
     this.showToast(isNow ? 'Saved to bookmarks' : 'Removed from bookmarks');
@@ -771,7 +754,7 @@ const App = {
   },
 
   speakBlogPassage(element, secNum) {
-    const text = element.innerText.replace('▶ Play passage', '').trim();
+    const text = element.innerText.replace('Play passage', '').trim();
     if (text) {
       const section = this.findSection(secNum);
       window.TTSEngine.speakSelectedPassage(text, section);
@@ -806,7 +789,7 @@ const App = {
       ? paragraphs.map((p, idx) => `
           <div class="reader-paragraph" id="para-${idx}" onclick="App.speakPassageFromElement(this, ${idx})">
             ${this.formatParagraphText(p)}
-            <span class="speak-hint">▶ Play passage</span>
+            <span class="speak-hint"><i class="fa-solid fa-play" style="font-size:0.65rem;"></i> Play passage</span>
           </div>
         `).join('')
       : `<div class="reader-paragraph" id="para-0">${this.escapeHtml(section.content)}</div>`;
@@ -815,11 +798,11 @@ const App = {
       <div class="reader-container">
         <div class="reader-toolbar">
           <button class="reader-nav-btn" onclick="App.switchTab('chapters')">
-            ← Back to Chapters
+            <i class="fa-solid fa-arrow-left"></i> Chapters
           </button>
           <div class="reader-controls-right">
             <button class="btn-mark-read ${isRead ? 'is-read' : ''}" id="btnMarkRead" onclick="App.toggleSectionRead()" title="Track your reading progress">
-              ${isRead ? '✓ Completed' : 'Mark as Read'}
+              ${isRead ? '<i class="fa-solid fa-check"></i> Completed' : '<i class="fa-regular fa-circle-check"></i> Mark as Read'}
             </button>
             <button class="btn-pill" onclick="App.toggleSerif()" title="Toggle Serif / Sans-serif">
               ${this.useSerif ? 'Sans' : 'Serif'}
@@ -827,7 +810,7 @@ const App = {
             <button class="btn-pill" onclick="App.changeFontSize(-1)" title="Smaller text">A-</button>
             <button class="btn-pill" onclick="App.changeFontSize(1)" title="Larger text">A+</button>
             <button class="btn-pill ${isBookmarked ? 'active' : ''}" id="btnBookmark" onclick="App.toggleBookmarkCurrent()">
-              ${isBookmarked ? '★ Saved' : '☆ Bookmark'}
+              ${isBookmarked ? '<i class="fa-solid fa-bookmark"></i> Saved' : '<i class="fa-regular fa-bookmark"></i> Bookmark'}
             </button>
           </div>
         </div>
@@ -838,9 +821,9 @@ const App = {
         <!-- Conversational Explainer Card -->
         <div class="conversational-box">
           <div class="conv-header">
-            <span class="conv-badge">💬 Plain English Summary</span>
+            <span class="conv-badge"><i class="fa-solid fa-wand-magic-sparkles"></i> Plain English Summary</span>
             <button class="btn-listen-explainer" onclick="App.quickPlaySection(${section.number})">
-              ▶ Listen with TTS
+              <i class="fa-solid fa-play"></i> Listen with Audio
             </button>
           </div>
           <p class="conv-text">${this.escapeHtml(section.summary)}</p>
@@ -854,7 +837,7 @@ const App = {
         <!-- User Civic Study Notes -->
         <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-color);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-            <span style="font-size:0.8rem; font-weight:700; color:var(--gold);">📝 Personal Notes for Section ${section.number}</span>
+            <span style="font-size:0.8rem; font-weight:700; color:var(--gold);"><i class="fa-solid fa-pen-to-square"></i> Personal Notes for Section ${section.number}</span>
             <span id="noteSaveStatus" style="font-size:0.75rem; color:var(--text-dim);"></span>
           </div>
           <textarea id="sectionNoteInput" 
@@ -869,12 +852,12 @@ const App = {
         <div class="reader-bottom-nav">
           ${section.number > 1 ? `
             <button class="btn-nav-sec" onclick="App.openSection(${section.number - 1})">
-              ← Section ${section.number - 1}
+              <i class="fa-solid fa-chevron-left"></i> Section ${section.number - 1}
             </button>
           ` : '<div></div>'}
           ${section.number < 345 ? `
             <button class="btn-nav-sec" onclick="App.openSection(${section.number + 1})">
-              Section ${section.number + 1} →
+              Section ${section.number + 1} <i class="fa-solid fa-chevron-right"></i>
             </button>
           ` : '<div></div>'}
         </div>
@@ -894,7 +877,7 @@ const App = {
       <div class="reader-container">
         <div class="reader-toolbar">
           <button class="reader-nav-btn" onclick="App.switchTab('chapters')">
-            ← Back to Chapters
+            <i class="fa-solid fa-arrow-left"></i> Chapters
           </button>
           <div class="reader-controls-right">
             <button class="btn-pill" onclick="App.toggleSerif()">
@@ -910,9 +893,9 @@ const App = {
 
         <div class="conversational-box">
           <div class="conv-header">
-            <span class="conv-badge">💬 Overview</span>
+            <span class="conv-badge"><i class="fa-solid fa-circle-info"></i> Overview</span>
             <button class="btn-listen-explainer" onclick="App.quickPlayPreamble()">
-              ▶ Listen to Preamble
+              <i class="fa-solid fa-play"></i> Listen to Preamble
             </button>
           </div>
           <p class="conv-text">The Preamble is the philosophical cornerstone of Zimbabwe's 2013 Constitution, declaring popular sovereignty, historical resistance to colonial domination, equality, and national reconciliation.</p>
@@ -922,7 +905,7 @@ const App = {
           ${this.data.preamble.split('\n\n').map((para, idx) => `
             <div class="reader-paragraph" id="para-${idx}" onclick="App.speakPassageFromElement(this, ${idx})">
               ${this.escapeHtml(para)}
-              <span class="speak-hint">▶ Play passage</span>
+              <span class="speak-hint"><i class="fa-solid fa-play" style="font-size:0.65rem;"></i> Play passage</span>
             </div>
           `).join('')}
         </div>
@@ -930,7 +913,7 @@ const App = {
         <div class="reader-bottom-nav">
           <div></div>
           <button class="btn-nav-sec" onclick="App.openSection(1)">
-            Chapter 1: Section 1 →
+            Chapter 1: Section 1 <i class="fa-solid fa-chevron-right"></i>
           </button>
         </div>
       </div>
@@ -952,7 +935,7 @@ const App = {
     const isNow = window.BookmarksManager.toggleBookmark(this.currentSection);
     const btn = document.getElementById('btnBookmark');
     if (btn) {
-      btn.textContent = isNow ? '★ Saved' : '☆ Bookmark';
+      btn.innerHTML = isNow ? '<i class="fa-solid fa-bookmark"></i> Saved' : '<i class="fa-regular fa-bookmark"></i> Bookmark';
       btn.classList.toggle('active', isNow);
     }
     this.showToast(isNow ? 'Section added to bookmarks!' : 'Bookmark removed.');
@@ -1013,8 +996,8 @@ const App = {
 
     if (!query.trim()) {
       resultsContainer.innerHTML = `
-        <div style="text-align:center; padding: 2rem; color: var(--text-dim);">
-          <div style="font-size:2rem; margin-bottom:0.5rem;">🔍</div>
+        <div style="text-align:center; padding: 2rem; color: var(--text-muted);">
+          <div style="font-size:2rem; margin-bottom:0.5rem; color:var(--text-muted);"><i class="fa-solid fa-magnifying-glass"></i></div>
           <p>Search all 345 sections, keywords, or section numbers (e.g. "56", "freedom of expression", "citizenship")</p>
         </div>
       `;
@@ -1091,53 +1074,38 @@ const App = {
     // Synchronize highlight in Chapter Blog view
     this.syncBlogNowPlaying(section, chNumber);
 
-    // Update active chapter card highlight in chapters list
-    document.querySelectorAll('.chapter-card').forEach(c => c.classList.remove('is-chapter-playing'));
-    const activeChCard = document.getElementById(`chapterCard-${chNumber}`);
-    if (activeChCard) activeChCard.classList.add('is-chapter-playing');
+    // Update active track row highlight in chapters list
+    document.querySelectorAll('.track-row').forEach(c => c.classList.remove('is-playing'));
+    const activeRow = document.getElementById(`trackRow-${chNumber}`);
+    if (activeRow) activeRow.classList.add('is-playing');
 
-    // Update mini bar album thumbnail with equalizer wave
+    // Update mini bar album thumbnail
     const albumIcon = document.getElementById('miniAlbumIcon');
     if (albumIcon) {
-      albumIcon.innerHTML = `
-        <div class="equalizer-wave">
-          <span class="equalizer-bar"></span>
-          <span class="equalizer-bar"></span>
-          <span class="equalizer-bar"></span>
-          <span class="equalizer-bar"></span>
-        </div>
-      `;
+      albumIcon.innerHTML = `<i class="fa-solid fa-volume-high fa-beat-fade"></i>`;
     }
   },
 
   syncBlogNowPlaying(section, chNumber) {
-    // Remove previous now-playing highlights
-    document.querySelectorAll('.blog-section-card').forEach(el => {
+    // Remove previous now-playing highlights in reader
+    document.querySelectorAll('.reader-section-block').forEach(el => {
       el.classList.remove('is-now-playing');
-      const badge = el.querySelector('.now-playing-badge');
+      const badge = el.querySelector('.now-playing-pill');
       if (badge) badge.remove();
     });
 
     const secEl = document.getElementById(`blog-sec-${section.number}`);
     if (secEl) {
       secEl.classList.add('is-now-playing');
-      const headerDiv = secEl.querySelector('.blog-sec-header > div');
-      if (headerDiv && !headerDiv.querySelector('.now-playing-badge')) {
-        const badge = document.createElement('div');
-        badge.className = 'now-playing-badge';
-        badge.innerHTML = `
-          <div class="equalizer-wave">
-            <span class="equalizer-bar"></span>
-            <span class="equalizer-bar"></span>
-            <span class="equalizer-bar"></span>
-            <span class="equalizer-bar"></span>
-          </div>
-          <span>NOW PLAYING</span>
-        `;
-        headerDiv.insertBefore(badge, headerDiv.firstChild);
+      const headerNum = secEl.querySelector('.reader-sec-num');
+      if (headerNum && !secEl.querySelector('.now-playing-pill')) {
+        const badge = document.createElement('span');
+        badge.className = 'now-playing-pill';
+        badge.innerHTML = `<i class="fa-solid fa-volume-high fa-beat-fade"></i> NOW PLAYING`;
+        headerNum.appendChild(badge);
       }
 
-      // Smoothly scroll active section card into view if chapter-blog tab is visible
+      // Smoothly scroll active section block into view if chapter-blog tab is visible
       const blogTab = document.getElementById('tab-chapter-blog');
       if (blogTab && blogTab.classList.contains('active')) {
         secEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1171,7 +1139,7 @@ const App = {
 
     window.TTSEngine.playChapterPlaylist(chNumber, startSecNumber);
     const startNum = startSecNumber || (ch.sections[0] ? ch.sections[0].number : 1);
-    this.showToast(`▶ Now Playing: Chapter ${chNumber} (Starting Sec ${startNum})`);
+    this.showToast(`Playing Chapter ${chNumber} (Section ${startNum})`, 'info');
 
     const blogTab = document.getElementById('tab-chapter-blog');
     if (blogTab && blogTab.classList.contains('active')) {
@@ -1185,10 +1153,12 @@ const App = {
     const isContinuous = window.TTSEngine.continuousPlay;
     const btn = document.getElementById('miniAutoplayToggle');
     if (btn) {
-      btn.textContent = isContinuous ? '🔁 Autoplay ON' : '⏹ Autoplay OFF';
+      btn.innerHTML = isContinuous 
+        ? '<i class="fa-solid fa-repeat"></i> <span>Autoplay ON</span>' 
+        : '<i class="fa-solid fa-repeat"></i> <span>Autoplay OFF</span>';
       btn.classList.toggle('is-off', !isContinuous);
     }
-    this.showToast(isContinuous ? '🔁 Continuous Album Autoplay: ON' : '⏹ Autoplay: OFF');
+    this.showToast(isContinuous ? 'Continuous Autoplay: ON' : 'Continuous Autoplay: OFF', 'info');
   },
 
   updateAudioUI(state) {
@@ -1197,13 +1167,16 @@ const App = {
     const miniSub = document.getElementById('miniTrackSub');
     const miniBtnPlay = document.getElementById('miniBtnPlay');
     const miniToggle = document.getElementById('miniAutoplayToggle');
+    const miniProgressFill = document.getElementById('miniProgressFill');
 
     const loungeTitle = document.getElementById('loungeTitle');
     const loungeTag = document.getElementById('loungeTag');
     const loungeBtnPlay = document.getElementById('loungeBtnPlay');
 
     if (miniToggle) {
-      miniToggle.textContent = window.TTSEngine.continuousPlay ? '🔁 Autoplay ON' : '⏹ Autoplay OFF';
+      miniToggle.innerHTML = window.TTSEngine.continuousPlay 
+        ? '<i class="fa-solid fa-repeat"></i> <span>Autoplay ON</span>' 
+        : '<i class="fa-solid fa-repeat"></i> <span>Autoplay OFF</span>';
       miniToggle.classList.toggle('is-off', !window.TTSEngine.continuousPlay);
     }
 
@@ -1218,9 +1191,14 @@ const App = {
       if (loungeTag) loungeTag.textContent = `Chapter ${state.currentSection.chapterNumber}`;
     }
 
-    const icon = state.isPlaying && !state.isPaused ? '⏸' : '▶';
-    if (miniBtnPlay) miniBtnPlay.textContent = icon;
-    if (loungeBtnPlay) loungeBtnPlay.textContent = icon;
+    const icon = state.isPlaying && !state.isPaused ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play"></i>';
+    if (miniBtnPlay) miniBtnPlay.innerHTML = icon;
+    if (loungeBtnPlay) loungeBtnPlay.innerHTML = icon;
+
+    if (miniProgressFill && state.totalParagraphs > 0) {
+      const pct = Math.round(((state.currentParagraphIndex + 1) / state.totalParagraphs) * 100);
+      miniProgressFill.style.width = `${pct}%`;
+    }
   },
 
   quickPlaySection(secNum) {
@@ -1261,32 +1239,157 @@ const App = {
     }
   },
 
+  updateSpeedButtonLabel(rate) {
+    const lbl = document.getElementById('speedValueLabel');
+    if (!lbl) return;
+    const r = parseFloat(rate || window.TTSEngine.rate || 1.0);
+    let desc = 'Normal';
+    if (r < 0.8) desc = 'Slower';
+    else if (r < 1.0) desc = 'Relaxed';
+    else if (r > 1.2) desc = 'Fast';
+    else if (r > 1.0) desc = 'Brisk';
+    lbl.innerHTML = `<i class="fa-solid fa-gauge-high"></i> ${r}x (${desc})`;
+  },
+
+  async openSpeedSelector() {
+    const currentRate = (window.TTSEngine.rate || 1.0).toString();
+    const inputOptions = {
+      '0.75': '0.75x — Slower (Study pace)',
+      '0.9':  '0.9x  — Relaxed pace',
+      '1':    '1.0x  — Normal (Recommended)',
+      '1.15': '1.15x — Conversational pace',
+      '1.25': '1.25x — Brisk reading',
+      '1.5':  '1.5x  — Fast recap'
+    };
+
+    const { value: selectedSpeed } = await Swal.fire({
+      title: 'Speech Playback Speed',
+      input: 'radio',
+      inputOptions: inputOptions,
+      inputValue: currentRate,
+      confirmButtonText: 'Apply Speed',
+      confirmButtonColor: '#2563eb',
+      showCancelButton: true,
+      cancelButtonText: 'Cancel',
+      cancelButtonColor: '#94a3b8'
+    });
+
+    if (selectedSpeed) {
+      window.TTSEngine.setRate(selectedSpeed);
+      this.updateSpeedButtonLabel(selectedSpeed);
+      this.showToast(`Playback speed set to ${selectedSpeed}x`, 'success');
+    }
+  },
+
+  updateVoiceButtonLabel() {
+    const lbl = document.getElementById('voiceValueLabel');
+    if (!lbl) return;
+
+    if (window.TTSEngine.isElevenLabs) {
+      lbl.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles" style="color:var(--primary);"></i> ElevenLabs AI Voice (HD)`;
+    } else if (window.TTSEngine.selectedVoice) {
+      const vName = window.TTSEngine.selectedVoice.name || 'Natural Device Voice';
+      lbl.innerHTML = `<i class="fa-solid fa-microphone"></i> ${this.escapeHtml(vName)}`;
+    } else {
+      lbl.innerHTML = `<i class="fa-solid fa-microphone"></i> Natural Device Voice`;
+    }
+  },
+
   renderVoiceOptions() {
-    const select = document.getElementById('voiceSelect');
-    if (!select) return;
+    this.updateVoiceButtonLabel();
+  },
 
-    const voices = window.TTSEngine.voices || [];
-    const isPremium = window.AuthManager && window.AuthManager.currentUser && window.AuthManager.currentUser.is_premium;
+  async openVoiceSelector() {
     const isEleven = window.TTSEngine.isElevenLabs;
+    const isPremium = window.AuthManager && window.AuthManager.currentUser && window.AuthManager.currentUser.is_premium;
+    const voices = window.TTSEngine.voices || [];
 
-    let html = `
-      <optgroup label="✨ AI Voices (Premium Tier)">
-        <option value="elevenlabs" ${isEleven ? 'selected' : ''}>
-          🌟 ElevenLabs AI Voice ${isPremium ? '(Active Premium)' : '(Premium Tier)'}
-        </option>
-      </optgroup>
-      <optgroup label="🗣️ Standard Voices (Free & Offline)">
-        <option value="" ${(!isEleven && !window.TTSEngine.selectedVoice) ? 'selected' : ''}>
-          Default Device Conversational Voice
-        </option>
-        ${voices.map(v => `
-          <option value="${v.voiceURI}" ${(!isEleven && v === window.TTSEngine.selectedVoice) ? 'selected' : ''}>
-            ${v.name} (${v.lang})
-          </option>
-        `).join('')}
-      </optgroup>
-    `;
-    select.innerHTML = html;
+    const inputOptions = {};
+    inputOptions['elevenlabs'] = `ElevenLabs HD Neural AI Voice ${isPremium ? '(Active)' : '(Requires Premium)'}`;
+    inputOptions['default'] = 'Natural Device Conversational Voice (Free & Offline)';
+
+    voices.forEach(v => {
+      inputOptions[v.voiceURI] = `${v.name} (${v.lang})`;
+    });
+
+    let currentValue = 'default';
+    if (isEleven) {
+      currentValue = 'elevenlabs';
+    } else if (window.TTSEngine.selectedVoice) {
+      currentValue = window.TTSEngine.selectedVoice.voiceURI;
+    }
+
+    const { value: selectedVoiceUri } = await Swal.fire({
+      title: 'Speech Voice & Quality',
+      input: 'select',
+      inputOptions: inputOptions,
+      inputValue: currentValue,
+      confirmButtonText: 'Apply Voice',
+      confirmButtonColor: '#2563eb',
+      showCancelButton: true,
+      cancelButtonText: 'Cancel',
+      cancelButtonColor: '#94a3b8'
+    });
+
+    if (!selectedVoiceUri) return;
+
+    if (selectedVoiceUri === 'elevenlabs') {
+      const user = window.AuthManager ? window.AuthManager.currentUser : null;
+      if (!user) {
+        const signinRes = await Swal.fire({
+          icon: 'info',
+          title: 'Sign In Required',
+          text: 'Please sign in with your email account to activate ElevenLabs AI Voice.',
+          confirmButtonText: 'Sign In Now',
+          confirmButtonColor: '#2563eb',
+          showCancelButton: true,
+          cancelButtonText: 'Later',
+          cancelButtonColor: '#94a3b8'
+        });
+        if (signinRes.isConfirmed) {
+          this.openAuthModal('login');
+        }
+        window.TTSEngine.setVoice('');
+        this.updateVoiceButtonLabel();
+        return;
+      }
+
+      if (!user.is_premium) {
+        const demoPrompt = await Swal.fire({
+          icon: 'question',
+          title: 'ElevenLabs HD Voice',
+          text: 'ElevenLabs AI Voice is for Premium subscribers. Would you like to activate the Demo Premium Pass for your account to test it right now?',
+          showCancelButton: true,
+          confirmButtonText: 'Activate Demo Pass',
+          confirmButtonColor: '#2563eb',
+          cancelButtonText: 'Keep Free Voice',
+          cancelButtonColor: '#94a3b8'
+        });
+
+        if (demoPrompt.isConfirmed) {
+          await this.toggleDemoPremium();
+          window.TTSEngine.setVoice('elevenlabs');
+          this.updateVoiceButtonLabel();
+          this.showToast('Demo Premium Pass active! ElevenLabs HD Voice enabled.', 'success');
+        } else {
+          window.TTSEngine.setVoice('');
+          this.updateVoiceButtonLabel();
+        }
+        return;
+      }
+
+      window.TTSEngine.setVoice('elevenlabs');
+      this.updateVoiceButtonLabel();
+      this.showToast('ElevenLabs HD AI Voice enabled.', 'success');
+    } else if (selectedVoiceUri === 'default') {
+      window.TTSEngine.setVoice('');
+      this.updateVoiceButtonLabel();
+      this.showToast('Using Default Conversational Voice.', 'info');
+    } else {
+      window.TTSEngine.setVoice(selectedVoiceUri);
+      this.updateVoiceButtonLabel();
+      this.showToast('Device voice applied.', 'info');
+    }
   },
 
   /* ===================================================================
@@ -1299,9 +1402,9 @@ const App = {
     const bookmarks = window.BookmarksManager.getBookmarks();
     if (bookmarks.length === 0) {
       container.innerHTML = `
-        <div style="text-align:center; padding: 2rem; color: var(--text-muted);">
-          <div style="font-size:2rem; margin-bottom:0.5rem;">★</div>
-          <p>No saved bookmarks yet. Tap the bookmark button on any section to save it here for quick reference.</p>
+        <div style="text-align:center; padding: 2.5rem 1rem; color: var(--text-muted);">
+          <div style="font-size:2rem; margin-bottom:0.75rem; color:var(--text-muted);"><i class="fa-regular fa-bookmark"></i></div>
+          <p style="font-size:0.95rem;">No saved bookmarks yet. Tap the bookmark button on any section to save it here for quick reference.</p>
         </div>
       `;
       return;
@@ -1313,7 +1416,7 @@ const App = {
         <div class="search-card" onclick="App.openSection(${b.number})">
           <div style="display:flex; justify-content:space-between; align-items:flex-start;">
             <div class="search-card-meta">Chapter ${b.chapterNumber}: ${this.escapeHtml(b.chapterTitle || '')}</div>
-            <button class="btn-pill" onclick="event.stopPropagation(); App.removeBookmark(${b.number})" style="color:var(--crimson);">Remove</button>
+            <button class="btn-pill" onclick="event.stopPropagation(); App.removeBookmark(${b.number})" style="color:var(--crimson);"><i class="fa-solid fa-trash-can" style="font-size:0.75rem;"></i> Remove</button>
           </div>
           <h4 class="search-card-title">Section ${b.number}. ${this.escapeHtml(b.title)}</h4>
           ${note ? `
@@ -1331,7 +1434,7 @@ const App = {
     if (section) {
       window.BookmarksManager.toggleBookmark(section);
       this.renderBookmarksList();
-      this.showToast('Bookmark removed');
+      this.showToast('Bookmark removed', 'info');
     }
   },
 
@@ -1348,49 +1451,6 @@ const App = {
       });
     }
 
-    const speedSelect = document.getElementById('speedSelect');
-    if (speedSelect) {
-      speedSelect.value = window.TTSEngine.rate.toString();
-      speedSelect.addEventListener('change', (e) => {
-        window.TTSEngine.setRate(e.target.value);
-      });
-    }
-
-    const voiceSelect = document.getElementById('voiceSelect');
-    if (voiceSelect) {
-      voiceSelect.addEventListener('change', async (e) => {
-        const val = e.target.value;
-        if (val === 'elevenlabs') {
-          const user = window.AuthManager ? window.AuthManager.currentUser : null;
-          if (!user) {
-            this.showToast('Please sign in with email to use ElevenLabs AI Voice.');
-            this.openAuthModal('login');
-            window.TTSEngine.setVoice('');
-            this.renderVoiceOptions();
-            return;
-          }
-          if (!user.is_premium) {
-            const doDemo = confirm(
-              '🌟 ElevenLabs AI Voice is for Premium subscribers.\n\nWould you like to activate the Demo Premium Pass for your account to test it right now?'
-            );
-            if (doDemo) {
-              await this.toggleDemoPremium();
-              window.TTSEngine.setVoice('elevenlabs');
-              this.renderVoiceOptions();
-            } else {
-              window.TTSEngine.setVoice('');
-              this.renderVoiceOptions();
-            }
-            return;
-          }
-          window.TTSEngine.setVoice('elevenlabs');
-          this.showToast('ElevenLabs AI Voice active!');
-        } else {
-          window.TTSEngine.setVoice(val);
-        }
-      });
-    }
-
     const convCheckbox = document.getElementById('convModeCheckbox');
     if (convCheckbox) {
       convCheckbox.checked = window.TTSEngine.conversationalMode;
@@ -1400,34 +1460,26 @@ const App = {
     }
   },
 
-  showToast(message) {
-    let toast = document.getElementById('appToast');
-    if (!toast) {
-      toast = document.createElement('div');
-      toast.id = 'appToast';
-      toast.style.cssText = `
-        position: fixed;
-        bottom: 80px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #1b261f;
-        color: #f1f5f9;
-        border: 1px solid var(--gold-border);
-        padding: 0.6rem 1.2rem;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        z-index: 100;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        pointer-events: none;
-        transition: opacity 0.3s;
-      `;
-      document.body.appendChild(toast);
+  showToast(message, icon = 'info') {
+    if (window.Swal) {
+      const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+          toast.addEventListener('mouseenter', Swal.stopTimer);
+          toast.addEventListener('mouseleave', Swal.resumeTimer);
+        }
+      });
+      Toast.fire({
+        icon: icon,
+        title: message
+      });
+    } else {
+      console.log(`[Toast] ${message}`);
     }
-    toast.textContent = message;
-    toast.style.opacity = '1';
-    setTimeout(() => {
-      toast.style.opacity = '0';
-    }, 3000);
   },
 
   escapeHtml(str) {
